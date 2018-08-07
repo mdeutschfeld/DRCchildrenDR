@@ -1,0 +1,25 @@
+"0","dhps_tab <- read_delim(""~/Desktop/Loved Children/dhps.tab.txt"", 
+                       ""\t"", escape_double = FALSE, trim_ws = TRUE)
+"
+"2","Parsed with column specification:
+cols(
+  GeneID = col_character(),
+  Sample = col_character(),
+  Region = col_character(),
+  TargetName = col_character(),
+  h_popUID = col_character(),
+  COI = col_integer(),
+  TotalBarcodes = col_integer(),
+  Barcodes = col_integer(),
+  BarcodesFraction = col_double(),
+  cluster = col_integer(),
+  ct_value = col_double(),
+  lat = col_double(),
+  long = col_double(),
+  `PF3D7_0810800-435` = col_character(),
+  `PF3D7_0810800-436` = col_character(),
+  `PF3D7_0810800-539` = col_character(),
+  `PF3D7_0810800-580` = col_character(),
+  `PF3D7_0810800-612` = col_character()
+)
+"

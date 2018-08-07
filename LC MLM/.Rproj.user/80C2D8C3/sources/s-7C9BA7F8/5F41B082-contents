@@ -1,0 +1,75 @@
+---
+title: "LC descriptive stats"
+author: "Molly"
+date: "June 27, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# loading in required packages
+#install.packages("tableone")
+library(tableone)
+
+#reading in data 
+ind_full <- read.csv("~/Desktop/Loved Children/LC MLM/LC_merged.csv")
+
+
+```
+
+```{r}
+## making a table 1 for the Loved Children 
+## starting with DHPS 
+## included covariates: prevalence, Fansidar use, wealth index, mean wealth, education, urbanicity, mixed infections and population cluster size
+
+# creating a list of the variables
+
+# starting with the categorical variables 
+
+dhpsvars <- c("wealth_median", "wealthindex", "mixed", "urban1rural0")
+dhpsstrat <- c("dhps_mut")
+
+Table1 <- CreateCatTable(vars = dhpsvars, strata = dhpsstrat, data = ind_full)
+Table1
+
+## crt 
+
+crtvars <- c("wealth_median", "wealthindex", "mixed", "urban1rural0")
+crtstrat <- c("CRT")
+
+CRT_Table1 <- CreateCatTable(vars = crtvars, strata = crtstrat, data = ind_full)
+CRT_Table1
+```
+
+```{r}
+## continuous variables 
+
+dhps_cont <- c("PrevPct", "Fansidar10", "weighted_total", "pctedu0")
+dhpsstrat <- c("dhps_mut")
+
+Dhps_cont_table1 <- CreateTableOne(vars = dhps_cont, strata = dhpsstrat, data = ind_full)
+Dhps_cont_table1
+
+tapply(ind_full$wealth_median, ind_full$dhps_mut, summary)
+tapply(ind_full$wealthindex, ind_full$dhps_mut, summary)
+
+
+## crt
+
+crt_cont <- c("PrevPct", "Chlor10", "weighted_total", "pctedu0")
+crtstrat <- c("CRT")
+
+CRT_cont_table1 <- CreateTableOne(vars = crt_cont, strata = crtstrat, data = ind_full)
+CRT_cont_table1
+
+tapply(ind_full$wealth_median, ind_full$CRT, summary)
+tapply(ind_full$wealthindex, ind_full$CRT, summary)
+
+summary(ind_full$ChlorPct)
+hist(ind_full$ChlorPct)
+```
+```
+

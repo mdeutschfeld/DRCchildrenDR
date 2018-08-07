@@ -1,0 +1,28 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1531404593226.000,
+    "dirty" : false,
+    "encoding" : "",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "4BA600D",
+    "lastKnownWriteTime" : 4294967302,
+    "last_content_update" : 1531404593226,
+    "path" : null,
+    "project_path" : null,
+    "properties" : {
+        "cacheKey" : "q61uguzb9x",
+        "caption" : "pfonly",
+        "contentUrl" : "grid_resource/gridviewer.html?env=&obj=pfonly&cache_key=q61uguzb9x",
+        "displayedObservations" : 8838,
+        "environment" : "",
+        "object" : "pfonly",
+        "totalObservations" : 8838,
+        "variables" : 2
+    },
+    "relative_order" : 5,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_dataframe"
+}

@@ -1,0 +1,21 @@
+{
+    "collab_server" : "",
+    "contents" : "\n\nuni1 <- glmer(dhps_mut  ~ 1 + (1|year/province), data = ind_full, family=binomial(link =logit))\nsummary(uni1)\n\n\npoisson_1 <- glmer(K540E  ~ mixed + (1|year/province), data = ind_full, family=poisson(link = \"log\"))\nsummary(poisson_1)\n\ncrt1 <-  glmer(CRT  ~ AmoPct + (1|year/province), data = ind_full, family=poisson(link = \"log\"))\nsummary(poisson_1)\n\n\nind_full$Fan10 <- ind_full$FansPercent*10\n\n\nhist(MoST_Congo$wealthindex)\nsummary(MoST_Congo$wealthindex)\nhist(DHSChildrenU5$hv270)\n",
+    "created" : 1527766033021.000,
+    "dirty" : true,
+    "encoding" : "",
+    "folds" : "",
+    "hash" : "1462665513",
+    "id" : "8C1E8BD7",
+    "lastKnownWriteTime" : 6,
+    "last_content_update" : 1527860351826,
+    "path" : null,
+    "project_path" : null,
+    "properties" : {
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 4,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

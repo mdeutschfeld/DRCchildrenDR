@@ -1,0 +1,127 @@
+---
+title: "LC chi-squared"
+author: "Molly"
+date: "June 7, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+##### there are lots of ways to look at the frequencies becauase of the NA's 
+##### going to present all of them so that we can decide which is best 
+
+# loading in data 
+ind_full <- read.csv("~/Desktop/Loved Children/LC MLM/LC_merged.csv")
+dhps_scratch <- ind_full
+```
+
+```{r}
+# looking at the number of NAs in 2007 and 2013
+
+missing <- ind_full
+missing$A437G
+
+missing <- missing %>% mutate(K540E = replace(K540E, which(is.na(K540E)), 3))
+
+missing_tab <- table(missing$K540E, missing$year)
+missing_tab
+
+year_tab <- table(missing$year)
+year_tab
+```
+
+```{r cars, echo = FALSE}
+
+
+### first going to remove the NAs 
+dhps_scratch <- subset(dhps_scratch, !is.na(A437G))
+dhps_scratch <- subset(dhps_scratch, !is.na(K540E))
+dhps_scratch <- subset(dhps_scratch, !is.na(A581G))
+
+dhps_scratch$snps <- dhps_scratch$A437G + dhps_scratch$K540E + dhps_scratch$A581G
+
+scratch_muts <- dhps_scratch[c("A437G", "K540E", "A581G", "year", "snps", "CRT")]
+
+## strating with the overall number of SNPS 
+muts_table <- table(scratch_muts$year, scratch_muts$snps)
+muts_table
+chisq.test(muts_table)
+fisher.test(muts_table) 
+
+# what if we want to test is there an increase in any dhps mut 
+
+scratch_muts$dhps[scratch_muts$snps >= 1] <- 1
+scratch_muts$dhps[scratch_muts$snps == 0] <- 0
+
+scratch_muts$dhps[scratch_muts$A437G == 1 | scratch_muts$K540E == 1 | scratch_muts$A581G == 1] <-1
+scratch_muts$dhps[scratch_muts$A437G == 0 & scratch_muts$K540E == 0 & scratch_muts$A581G == 0] <-0
+
+A437 <- table(scratch_muts$dhps, scratch_muts$year)
+A437
+
+A437no <- table(nomiss$dhps, nomiss$year)
+A437no
+
+dhps_tab <- table(scratch_muts$dhps, scratch_muts$year)
+dhps_tab
+chisq.test(dhps_tab)
+print("69% with mutations in 2007, 73% in 2013")
+
+crosstab <- table(scratch_muts$dhps, scratch_muts$snps, scratch_muts$year)
+crosstab
+## just looking at K540E 
+K540E_tab <- table(scratch_muts$K540E, scratch_muts$year)
+K540E_tab
+chisq.test(K540E_tab)
+print("19% K540E mutations in 2007, 41% in 2013, p-value <0.01")
+
+# crt 
+crt_tab <- table(scratch_muts$CRT, scratch_muts$year)
+crt_tab
+chisq.test(crt_tab)
+print("Exclusing anyone with missing values, the proportion of CRT snps increases from 50% in 2007 to 55% in 2013, a non-significant increase (p = 0.65")
+```
+
+```{r, echo = FALSE}
+### now keeping the NAs in 
+allobvs <- as.data.frame(ind_full[c("A437G", "K540E", "A581G", "year", "CRT", "barcode")])
+
+#nomiss$snps <- nomiss$A437G + nomiss$K540E + nomiss$A581G ## don't want to use this beacuse it creates NAs 
+allobvs$dhps[allobvs$A437G == 1 | allobvs$K540E == 1 | allobvs$A581G == 1] <-1
+allobvs$dhps[allobvs$A437G == 0 & allobvs$K540E == 0 & allobvs$A581G == 0] <-0
+
+
+allobvs_dhps <- table(allobvs$year, allobvs$dhps)
+allobvs_dhps
+chisq.test(allobvs_dhps)
+115/(115+30)
+264/(264+83)
+print("not dropping missing, the proportion of DHPS snps is 79% in 2007 and 76% in 2013")
+
+allobvs_K540E <- table(allobvs$K540E, allobvs$year)
+allobvs_K540E
+chisq.test(allobvs_K540E)
+print("The proportion of K540E mutations jumps from 17% in 2007 to 41% in 2013, p-value <<0.01")
+
+
+# crt 
+allobvs_crt <- table(allobvs$CRT, allobvs$year)
+allobvs_crt
+chisq.test(allobvs_crt)
+print("proportion of CRT mutations increases from 47% in 2007 to 55% in 2013. This is a non-significant increase (p=0.26")
+
+
+
+
+```
+
+```{r}
+### now going to only drop people who have NA for all observations since we don't want to drop them if they have some usable data 
+
+```
+
+
+

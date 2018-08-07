@@ -1,0 +1,9 @@
+"0","dhps_sum = dhps_sel1 %>% 
+  dplyr::group_by(Sample, COI) %>% 
+  dplyr::summarise(totals = n()) %>% 
+  dplyr::group_by(Sample) %>% 
+  dplyr::mutate(totalTargets = sum(totals)) %>% 
+  dplyr::mutate(fraction = totals/totalTargets)
+"
+"2","Error in eval(lhs, parent, parent) : object 'dhps_sel1' not found
+"

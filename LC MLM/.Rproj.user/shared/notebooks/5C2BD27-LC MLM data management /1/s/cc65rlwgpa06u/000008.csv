@@ -1,0 +1,9 @@
+"0","# subsetting only the SNP and cluster columns 
+## keeping individual covariates we think are important
+# wealth index 
+# v024 - province mv024 is also province? 
+dhs_sub <- adult_merged[c(1, ""mutant"", ""mixed"", ""d437"", ""d540"", ""d581"", ""mv024"", ""v024"", ""wealthindex"", ""cluster"", ""mv005"", ""sampleweight"", ""falcipprev"")]
+"
+"2","Error in `[.data.frame`(adult_merged, c(1, ""mutant"", ""mixed"", ""d437"",  : 
+  undefined columns selected
+"

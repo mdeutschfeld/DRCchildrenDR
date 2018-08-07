@@ -1,0 +1,305 @@
+---
+title: "LC MLM modeling code"
+author: "Molly"
+date: "April 5, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+### loading necessary libraries and uploading data
+library(lme4)
+library(exact2x2)
+#install.packages("robustlmm")
+#library(robustlmm)
+#install.packages("sandwich")
+#library(sandwich)
+
+#reading data 
+ind_full <- read.csv("~/Desktop/Loved Children/LC MLM/LC_merged.csv")
+```
+
+```{r}
+# just looking at various cross-tabs 
+year <- table(ind_full$year)
+year
+
+mut <- table(ind_full$A437G, ind_full$K540E, ind_full$year)
+mut
+
+mut <- table(ind_full$A437G, ind_full$K540E, ind_full$A581G, ind_full$year)
+ftable(mut)
+
+
+mixed_tab <- table(ind_full$mixed, ind_full$year)
+chisq.test(mixed_tab)
+prop.test(mixed_tab)
+## number of mixed infections increased from ~ 13% to ~21% 
+
+dhps_tab <- table(ind_full$dhps_mut, ind_full$year)
+dhps_tab
+summary(dhps_tab)
+prop.test(dhps_tab)
+
+K540E_tab <- table(ind_full$K540E, ind_full$year)
+K540E_tab
+chisq.test(K540E_tab)
+prop.test(K540E_tab)
+
+crt_tab <- table(ind_full$CRT, ind_full$year)
+crt_tab
+chisq.test(crt_tab)
+
+## looking at non-mixed infections 
+monoclonal <- subset(ind_full, ind_full$mixed == 0)
+
+mono_year <- table(monoclonal$year)
+mono_year
+
+mono_mut <- table(monoclonal$A437G, monoclonal$K540E, monoclonal$year)
+ftable(mono_mut)
+summary(mono_mut)
+?fisher.test
+prop.test(mono_mut)
+
+mono_dhps <- table(monoclonal$dhps_mut, monoclonal$year)
+mono_dhps
+summary(mono_dhps)
+chisq.test(mono_dhps)
+prop.test(mono_dhps)
+
+mono_a437g <- table(monoclonal$A437G, monoclonal$year)
+mono_a437g
+chisq.test(mono_a437g)
+summary(mono_a437g)
+
+mono_k540e <- table(monoclonal$K540E, monoclonal$year)
+mono_k540e
+summary(mono_k540e)
+10/(10+104)
+68/(142+68)
+chisq.test(mono_k540e)
+
+mono_crt <- table(monoclonal$CRT, monoclonal$year)
+mono_crt
+chisq.test(mono_crt)
+summary(mono_crt)
+
+```
+
+
+```{r}
+#########################
+#### DHPS mutations ####
+########################
+
+## trying some univariate logistic models 
+## any mutation outcome 
+## could probably write a function to do this more efficiently...
+
+uni1 <- glmer(dhps_mut  ~ prevalence + (1|year/cluster), data = ind_full, family=binomial(link =logit))
+summary(uni1)
+
+uni1 <- glmer(dhps_mut  ~ prevalence + (1|province), data = ind_full, family =binomial(link="logit"))
+summary(uni1)
+
+uni2 <- glmer(dhps_mut  ~ FansPercent+ (1|year/province), data = ind_full, family=binomial(link = logit))
+summary(uni2)
+
+uni3 <- glmer(dhps_mut  ~ mixed + (1|year) + (1|cluster) , data = ind_full, family=binomial(link = logit))
+summary(uni3)
+
+uni4 <- glmer(dhps_mut  ~ pctedu0+ (1|year/cluster), data = ind_full, family=binomial(link = logit))
+summary(uni4)
+
+uni5 <- glmer(dhps_mut  ~ urban1rural0 + (1|year/cluster), data = ind_full, family=binomial(link = logit))
+summary(uni5)
+
+uni6 <- glmer(dhps_mut  ~ wealthindex + (1|year/cluster), data = ind_full, family=binomial(link = logit))
+summary(uni6)
+
+uni7 <- glmer(dhps_mut  ~ wealth_mean + (1|year/cluster), data = ind_full, family=binomial(link = logit))
+summary(uni7)
+```
+
+```{r}
+### 540E outcome 
+
+uni_k1 <- glmer(K540E  ~ prevalence + (1|year/cluster), data = ind_full, family=binomial(link = logit))
+summary(uni_k1)
+
+uni_k2 <- glmer(K540E  ~ FansPercent + (1|year/cluster), data = ind_full, family=binomial(link = logit))
+summary(uni_k2)
+
+uni_k3 <- glmer(K540E  ~ wealthindex + (1|year/cluster), data = ind_full, family=binomial(link = logit))
+summary(uni_k3)
+
+uni_k4 <- glmer(K540E  ~ wealth_mean + (1|year/cluster), data = ind_full, family=binomial(link = logit))
+summary(uni_k4)
+
+uni_k5 <- glmer(K540E  ~ mixed + (1|year/cluster), data = ind_full, family=binomial(link = logit))
+summary(uni_k5)
+
+uni_k6 <- glmer(K540E  ~ pctedu0 + (1|year/cluster), data = ind_full, family=binomial(link = logit))
+summary(uni_k6)
+
+uni_k7 <- glmer(K540E  ~ urban1rural0 + (1|year/cluster), data = ind_full, family=binomial(link = logit))
+summary(uni_k7)
+```
+
+```{r}
+####################
+### CRT data ######
+###################
+## chloroquine data is super spotty - not really reliable in this analysis 
+
+### the CRT outcome is only for the K76T mutation since ~95% of the haplotypes have this mutation
+crt1 <- glmer(CRT  ~ prevalence + (1|year/cluster), data = ind_full, family=binomial(link = logit))
+summary(crt1)
+
+crt2 <- glmer(CRT  ~ wealthindex + (1|year/cluster), data = ind_full, family=binomial(link = logit))
+summary(crt2)
+## tried as a factor and model didn't converge? 
+
+crt3 <- glmer(CRT  ~ wealth_median + (1|year/cluster), data = ind_full, family=binomial(link = logit))
+summary(crt3)
+
+crt4 <- glmer(CRT  ~ mixed + (1|year/cluster), data = ind_full, family=binomial(link = logit))
+summary(crt4)
+
+crt5 <- glmer(CRT  ~ pctedu0 + (1|year/cluster), data = ind_full, family=binomial(link = logit))
+summary(crt5)
+
+crt6 <- glmer(CRT  ~ urban1rural0 + (1|year/cluster), data = ind_full, family=binomial(link = logit))
+summary(crt6)
+
+crt6 <- glmer(CRT  ~ urban1rural0 + (1|year/cluster), data = ind_full, family=binomial(link = logit))
+summary(crt6)
+```
+
+```{r}
+#### trying poisson regression with robust variance to see if we can get risks since log binomial models did not converge 
+poisson_1 <- glmer(dhps_mut  ~ PrevPct10 + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(poisson_1)
+
+poisson_1 <- glmer(dhps_mut  ~ PrevPct10 + (1|year) + (1|province), data = ind_full, family=poisson(link = "log"))
+summary(poisson_1)
+
+poisson_2 <- glmer(dhps_mut  ~ Fansidar10 + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(poisson_2)
+
+poisson_3 <- glmer(dhps_mut  ~ wealthindex + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(poisson_3)
+
+poisson_4 <- glmer(dhps_mut  ~ wealth_mean + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(poisson_4)
+
+poisson_5 <- glmer(dhps_mut  ~ mixed + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(poisson_5)
+
+#poisson_5 <- glm(dhps_mut  ~ mixed, data = ind_full, family=poisson(link = "log"))
+#summary(poisson_5)
+
+### sandwich estimator ### 
+# poisson_se <- glm(dhps_mut  ~ mixed, data = ind_full, family=poisson)
+# cov.m1 <- vcovHC(poisson_se, type="HC0")
+# std.err <- sqrt(diag(cov.m1))
+# r.est <- cbind(Estimate = coef(poisson_se), 
+#                "Robust SE" = std.err,
+#                "Pr(>|z|)" = 2 * pnorm(abs(coef(poisson_se)/std.err), lower.tail=FALSE),
+#                LL = coef(poisson_se) - 1.96 * std.err,
+#                UL = coef(poisson_se) + 1.96 * std.err
+#                )
+# r.est
+# summary(poisson_5)
+
+
+poisson_6 <- glmer(dhps_mut  ~ pctedu0 + (1|year), data = ind_full, family=poisson(link = "log"))
+summary(poisson_6)
+
+poisson_7 <- glmer(dhps_mut  ~ urban1rural0 + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(poisson_7)
+
+poisson_8 <- glmer(dhps_mut  ~ total + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(poisson_8) # total variable is the total number of people within that DHS cluster -- proxy for population density
+
+poisson_9 <- glmer(dhps_mut  ~ weighted_total + (1|year) + (1|province), data = ind_full, family=poisson(link = "log"))
+summary(poisson_9) # using sampling weights 
+
+
+```
+
+```{r}
+####### CRT ########
+#### trying poisson regression with robust variance to see if we can get risks since log binomial models did not converge 
+
+CRT_1 <- glmer(CRT  ~ PrevPct10 + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(CRT_1)
+
+CRT_2 <- glmer(CRT  ~ Chlor10 + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(CRT_2)
+
+CRT_3 <- glmer(CRT  ~ wealthindex + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(CRT_3)
+
+CRT_4 <- glmer(CRT  ~ wealth_mean + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(CRT_4)
+
+CRT_5 <- glmer(CRT  ~ mixed + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(CRT_5)
+
+CRT_6 <- glmer(CRT  ~ pctedu0 + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(CRT_6)
+
+CRT_7 <- glmer(CRT  ~ urban1rural0 + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(CRT_7)
+
+CRT_8 <- glmer(CRT  ~ total + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(CRT_8)
+
+```
+
+```{r}
+#################
+### K540E ########
+################
+K540E_1 <- glmer(K540E ~ PrevPct10 + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(K540E_1)
+
+K540E_prev10 <- glmer(K540E  ~ PrevPct10 + (1|year/province), data = ind_full, family=K540E(link = "log"))
+summary(K540E_prev10)
+
+K540E_2 <- glmer(K540E  ~ Fansidar10 + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(K540E_2)
+
+#K540E_3 <- glmer(K540E ~ as.factor(wealthindex) + (1|year/province), data = ind_full, family=K540E(link = "log"))
+#summary(K540E_3)
+
+K540E_3 <- glmer(K540E ~ wealthindex + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(K540E_3)
+
+K540E_4 <- glmer(K540E  ~ wealth_mean + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(K540E_4)
+
+K540E_5 <- glmer(K540E  ~ mixed + (1|year), data = ind_full, family=poisson(link = "log"))
+summary(K540E_5)
+
+K540E_6 <- glmer(K540E  ~ pctedu0 + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(K540E_6)
+
+K540E_7 <- glmer(K540E  ~ urban1rural0 + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(K540E_7)
+
+K540E_8 <- glmer(K540E  ~ Fansidar10 + (1|year/province), data = ind_full, family=K540E(link = "log"))
+summary(K540E_8)
+
+K540E_9 <- glmer(K540E  ~ weighted_total + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(K540E_9)
+
+```
+
+
+

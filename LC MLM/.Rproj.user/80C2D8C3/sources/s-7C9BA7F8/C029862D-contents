@@ -1,0 +1,628 @@
+---
+title: "Adult DHS and PCR Data Merge"
+author: "Nick Brazeau"
+date: "July 6, 2017"
+output: html_document
+fig.cap: TRUE
+---
+
+```{r setup, echo=F, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(reshape2)
+library(foreign)
+library(gdata)
+#install.packages("sas7bdat")
+library(sas7bdat)
+library(stringdist)
+library(zoo)
+
+#Spatial Analysis
+#install.packages("ggmap")
+library(ggmap)
+library(maps)
+library(rgdal)
+library(raster)
+library(maptools)
+
+```
+
+## PCR Result Data & Plate Map Exploration Initial Probe 
+Here I will merge sample names with plate map information for where samples are stored in original 96 deep well plates after Dried Blood Spot DNA extraction. This will be needed for future molecular work.
+
+Note, there were duplicate barcodes (n=2 samples, 4 DBS) on both the plate map files and the qPCR data. I spoke with Jolly and he said that these are duplicate barcodes (they weren't forgotten to be hole-punched). Am going to delete the duplicate barcodes (n=2 samples, 4 DBS) because we won't be able to tell the difference. 
+
+```{r Data Exploration of PCR Results Initial, include=T, echo=F}
+paste("Reading in the csv files that is associated with the PCR results, entitled DRC_DHS2013_pfldhPCR_final_V1.csv")
+
+## reading in data sets from my computer 
+adult_pfldhpcr <- read.xls("~/Documents/UNC/Meshnick Lab /DRC DHS data/DHS Data/DRC_DHS2013_pfldhPCR_final_V2.xlsx", sheet = 5) # note am going to change this 
+pltmp <- gdata::read.xls(xls = "~/Documents/UNC/Meshnick Lab /DRC DHS data/DHS Data/DRC_DHS2013_pfldhPCR_final.xlsx", sheet = 2, header=F, na.strings = c(""))
+CDPR61FL <- read.dta("~/Documents/DRC data/CDPR61DT/CDPR61FL.DTA")
+CDAR61FL <- read_sas("/Volumes/sph/EPID/Congo-Malaria/share/1. Data/1. Raw Data/DRC DHS 2013/CD_2013-14_DHS_01272017_1430_51168/cdar61sd/CDAR61FL.SAS7BDAT", 
+                     +     NULL)
+#file.choose()
+
+adult_pfldhpcr <- read.xls("/Volumes/share/1. Data/1. Raw Data/Adult_PfLDH/DRC_DHS2013_pfldhPCR_final_V2.xlsx", sheet = 5) # note am going to change this and update it once have settled with jolly and jon all the samples that need to be checked!
+str(adult_pfldhpcr$qPCRdate)
+adult_pfldhpcr$qPCRdate <- lubridate::ymd(adult_pfldhpcr$qPCRdate) # recode from factor to date
+str(adult_pfldhpcr$qPCRdate)
+paste("Spot check -- JP sas7bdat and csv read in the same")
+paste("Structure & Summaries of pfLDH PCR results dataframe")
+paste("There are", nrow(adult_pfldhpcr), "observations in the adult_pfldhPCR data.")
+str(adult_pfldhpcr)
+summary(adult_pfldhpcr)
+paste("There are", sum(adult_pfldhpcr$PFLDH, na.rm=T), paste0("(", round(sum(adult_pfldhpcr$PFLDH, na.rm=T)/length(adult_pfldhpcr$PFLDH)*100, digits=2), "%", ")"), 
+      "P. falicparum infections by pfLDH (%) in the adult data")
+
+#####################################
+##    qPCR FIX -- Duplicates  ######
+#####################################
+
+
+paste("Full rows for the Duplicated Barcode (i.e. dates of original call)")
+adult_pfldhpcr$barcode[duplicated(adult_pfldhpcr$barcode)]
+
+dups <- adult_pfldhpcr$barcode[duplicated(adult_pfldhpcr$barcode)]
+dups <- factor(dups)
+dups <- adult_pfldhpcr[adult_pfldhpcr$barcode %in% dups,]
+
+
+paste("We have TWO duplicated Barcode values", dups$barcode, "that have been removed from the qPCR dataset.")
+adult_pfldhpcr <- adult_pfldhpcr[which(adult_pfldhpcr$barcode != "L3E8B"), ]
+adult_pfldhpcr <- adult_pfldhpcr[which(adult_pfldhpcr$barcode != "I1C8T"), ]
+paste("We now have", nrow(adult_pfldhpcr), "samples to consider.")
+
+#######################################################################################
+#################  Read in 96 WELL PLATE MAP LOCATION INFORMATION    ##################
+#######################################################################################
+
+paste("Am now going to merge the PLATE MAP LOCATIONS with the pfLDH results.")
+
+pltmp <- gdata::read.xls(xls = "/Volumes/share/1. Data/1. Raw Data/Adult_PfLDH/Adults Plate Maps DHS DRC 2013.xlsx", sheet = 2, header=F, na.strings = c(""))
+
+pltmp <- pltmp[,c(1,3:15)] # Get rid of the columns that Jolly had in there for easier spacing
+
+
+colnames(pltmp) <- c("Plate", "rownum", "1","2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12")
+pltmp$Plate <- na.locf(pltmp$Plate) # replace NAs with value right above it...
+pltmp <- pltmp[which(!is.na(pltmp$rownum)),] # delete rows with row numbers (we made them above)
+
+########################## 
+## Plate Map Spread ######
+########################## 
+pltmp <- melt(pltmp, id.vars = c("Plate", "rownum")) # reshape 
+head(pltmp)
+# We have more variables than expected -- probably because of the three blank spots we leave on every plate for control?
+colnames(pltmp) <- c("DNAPlate", "DNArownum", "DNAcolumnletter", "barcode")
+
+pltmp <- pltmp[which(!(is.na(pltmp$barcode))), ] # drop the barcodes/PCR plate spots with missing data that got read in as NAs
+pltmp <- pltmp[which(pltmp$barcode != " " ), ] # drop the barcodes/PCR plate spots with missing data that got read in as ""
+
+
+
+
+#####################################
+## Plate Map FIX -- Duplicates ######
+#####################################
+
+paste("Are there duplicate barcodes on the plate maps?:", TRUE %in% duplicated(pltmp$barcode))
+
+pltmpdup <- pltmp[duplicated(pltmp$barcode),]
+paste("These are the duplicated barcodes -- same as above -- GOING TO DELETE again:", pltmpdup$barcode)
+pltmpdup <- factor(pltmpdup$barcode)
+pltmpdup <- pltmp[pltmp$barcode %in% pltmpdup,]
+pltmpdup
+
+paste("We have TWO duplicated Barcode values", pltmpdup$barcode, "that have been removed from the qPCR dataset.")
+pltmp <- pltmp[which(pltmp$barcode != "L3E8B"), ]
+pltmp <- pltmp[which(pltmp$barcode != "I1C8T"), ]
+
+paste("We now have", nrow(pltmp), "samples to consider.")
+
+## this seems very low? Went from 17,000ish to 1166
+
+#####################################
+## Plate Map FIX -- Space Issues ####
+#####################################
+pltmp$barcode <- sub(" ", "", pltmp$barcode) # get rid of spaces before and after the barcode names
+pltmp$barcode[which(pltmp$barcode == "A9V8N")] <- "A 9V8N" # Need to keep this wrong for the merge later where it gets fixed...
+
+
+##########################################################################
+##########            Plate Map MERGE with qPCR DATA            ##########     
+##########################################################################
+adult_pfldhpcr <- left_join(x = adult_pfldhpcr, y = pltmp, by = c("barcode"))
+paste("Performed Merge. Are there any samples with qPCR data that lack a Plate Map Location:", TRUE %in% is.na(adult_pfldhpcr$DNArownum))
+
+
+#####################################
+##    Missing qPCR Information   ####
+#####################################
+missingqPCRdata <- anti_join(x=pltmp, y=adult_pfldhpcr, by=c("barcode"))
+
+paste("However, the following number of samples did not have qPCR DATA despite the fact that they had plate map locations:", paste0(nrow(missingqPCRdata), "."), "They are across the following plates:")
+c(levels(factor(missingqPCRdata$DNAPlate)))
+paste("Spoke with Jolly. These plates were contaminated in shipping and we decided not to do any DNA extraction on them! Good to go!")
+
+
+rm(pltmp, pltmpdup)
+
+```
+
+
+
+## Household Data exploration
+Household data is from the DHS 2013 survey. 
+```{r DHS Household Exploration, include=T, echo=F}
+
+########################################################################
+##################         HOUSEHOLD DATASETS         ##################
+########################################################################
+
+CDPR61FL <- read.sas7bdat("/Volumes/share/1. Data/1. Raw Data/DRC DHS 2013/CD_2013-14_DHS_01272017_1430_51168/cdpr61sd/CDPR61FL.SAS7BDAT", debug=FALSE)
+paste("There are", nrow(CDPR61FL), "observations in the DHS Household Dataset",
+      "This number matches JP's workflow.")
+
+colnames(CDPR61FL)[colnames(CDPR61FL) %in% c("hv001", "hv002")] <- c("cluster", "household")
+
+
+
+#### MISSING AND OVERLAP BARCODE EVAL
+## Fix these codes that aren't in MAP file
+CDPR61FL$ha62[CDPR61FL$ha62 == "99990"] <- ""
+CDPR61FL$ha62[CDPR61FL$ha62 == "99991"] <- ""
+CDPR61FL$ha62[CDPR61FL$ha62 == "99992"] <- ""
+CDPR61FL$ha62[CDPR61FL$ha62 == "99993"] <- ""
+CDPR61FL$ha62[CDPR61FL$ha62 == "99994"] <- ""
+CDPR61FL$ha62[CDPR61FL$ha62 == "99995"] <- ""
+CDPR61FL$ha62[CDPR61FL$ha62 == "99996"] <- ""
+CDPR61FL$ha62[CDPR61FL$ha62 == "99997"] <- ""
+CDPR61FL$ha62[CDPR61FL$ha62 == "99998"] <- ""
+CDPR61FL$ha62[CDPR61FL$ha62 == "99999"] <- ""
+CDPR61FL$ha62[CDPR61FL$ha62 == "?"] <- ""
+CDPR61FL$ha62 <- factor(CDPR61FL$ha62)
+
+CDPR61FL$hb62[CDPR61FL$hb62 == "99990"] <- ""
+CDPR61FL$hb62[CDPR61FL$hb62 == "99991"] <- ""
+CDPR61FL$hb62[CDPR61FL$hb62 == "99992"] <- ""
+CDPR61FL$hb62[CDPR61FL$hb62 == "99993"] <- ""
+CDPR61FL$hb62[CDPR61FL$hb62 == "99994"] <- ""
+CDPR61FL$hb62[CDPR61FL$hb62 == "99995"] <- ""
+CDPR61FL$hb62[CDPR61FL$hb62 == "99996"] <- ""
+CDPR61FL$hb62[CDPR61FL$hb62 == "99997"] <- ""
+CDPR61FL$hb62[CDPR61FL$hb62 == "99998"] <- ""
+CDPR61FL$hb62[CDPR61FL$hb62 == "99999"] <- ""
+CDPR61FL$hb62[CDPR61FL$hb62 == "?"] <- ""
+CDPR61FL$hb62 <- factor(CDPR61FL$hb62)
+
+paste("The HIV recoded barcodes are under the variables HA62 (males) and hb62 (females)",
+      "Let's make sure that there are no overlapping barcodes for individual observations (by row) for HA62 & hb62")
+paste("There are", length(which(CDPR61FL$ha62 != "")), "barcodes for men, suggesting that they did consent for HIV testing and have a DBS")
+paste("There are", length(which(CDPR61FL$hb62 != "")), "barcodes for women, suggesting that they did consent for HIV testing and have a DBS")
+paste("Overall based on the household dataset, we expect to have", (length(which(CDPR61FL$ha62 != "")) + length(which(CDPR61FL$hb62 != ""))), "DBS")
+
+malebar <- CDPR61FL$ha62[CDPR61FL$ha62 != ""]
+femalebar <- CDPR61FL$hb62[CDPR61FL$hb62 != ""]
+intrsct <- dplyr::intersect(malebar, femalebar)
+paste("How many barcodes for both the male (HA62) and female (hb62) observations?:", length(intrsct))
+paste("Should be 0; if not, stop and eval.")
+
+paste("OK. So no overlapping individuals with a male and female barcode -- good. Am now going to make a new variable, BARCODE, and concat the HA62 and hb62 columns in the Household Dataset")
+
+CDPR61FL$barcode <- ""
+CDPR61FL$ha62 <- as.character(CDPR61FL$ha62)
+CDPR61FL$barcode[which(CDPR61FL$ha62 != "")] <- CDPR61FL$ha62[which(CDPR61FL$ha62 != "")]
+
+CDPR61FL$hb62 <- as.character(CDPR61FL$hb62)
+CDPR61FL$barcode[which(CDPR61FL$hb62 != "")] <- CDPR61FL$hb62[which(CDPR61FL$hb62 != "")]
+barcode <- CDPR61FL[c("barcode")]
+
+
+
+paste("Confirm that concatenation worked based on length", "From above, we expect", (length(which(CDPR61FL$ha62 != "")) + length(which(CDPR61FL$hb62 != ""))), "barcodes.")
+paste("In our new barcode variable we have", (length(which(CDPR61FL$barcode != ""))), "observations,", "which matches our expectation:",
+      (length(which(CDPR61FL$barcode != ""))) == (length(which(CDPR61FL$HA62 != "")) + length(which(CDPR61FL$hb62 != ""))))
+
+paste("Are there any duplicated barcodes from the household dataset concatenated HA62 and hb62 new barcode variable?")
+#levels(factor(CDPR61FL$barcode[which(CDPR61FL$barcode != "")]))
+paste("There are", length(levels(factor(CDPR61FL$barcode[which(CDPR61FL$barcode != "")]))), "unique values,", 
+      "which matches our expectation:", length(levels(factor(CDPR61FL$barcode[which(CDPR61FL$barcode != "")]))) == (length(which(CDPR61FL$HA62 != "")) + length(which(CDPR61FL$hb62 != ""))))
+paste("Confirm no duplicated values by different approach -- Are there duplicated entries:", (TRUE %in% duplicated(CDPR61FL$barcode[which(CDPR61FL$barcode != "")])))
+
+paste("Good to go. Subsetting household dataset for HIV only pts")
+CDPR61FL <- CDPR61FL[which(CDPR61FL$barcode != ""),]
+```
+## HIV DHS Data & the Household Data
+**This dataset includes metadata only for adults who underwent HIV testing (and thus had DBS available for malaria testing)**. 
+_Sourced from DHS' Congo Democratic Republic HIV and Other Biomarkers repository and was downloaded onto our server under raw data on ######## by ######_. 
+
+```{r DHS Data HIV RECODE , include=T, echo=F}
+
+########################################################################
+##################              HIV DATASETS          ##################
+########################################################################
+
+CDAR61FL <- read.sas7bdat("/Volumes/share/1. Data/1. Raw Data/DRC DHS 2013/CD_2013-14_DHS_01272017_1430_51168/cdar61sd/CDAR61FL.SAS7BDAT", debug=FALSE)
+paste("There are", nrow(CDAR61FL), "observations in the DHS HIV Dataset",
+      "This number matches JP's workflow.")
+paste("This dataset contains a Cluster, Household, Line, Barcode, Lab Number, HIV blood test result, and sampling weight.", "I am going to keep all variables except Line number and lab number.")
+CDAR61FL <- CDAR61FL[!colnames(CDAR61FL) %in% c("HIV02", "HIVLINE")]
+colnames(CDAR61FL) <- c("cluster", "household", "barcode", "HIV03", "HIV05")
+
+paste("Am now going to merge the household member survey with the HIV recoded survery.",
+      "MERGING by cluster number, household number, and barcode")
+paste("To start the have the same number of rows:", nrow(CDAR61FL) == nrow(CDPR61FL))
+
+########################################################################
+##################            METADATE MERGE          ##################
+########################################################################
+
+firstmerge <- inner_join(x=CDAR61FL, y=CDPR61FL, by=c("cluster", "household", "barcode"))
+
+paste("The merge was successful and no observations were lost:", nrow(firstmerge) == nrow(CDAR61FL))
+paste("Are there any duplicate observations:", (TRUE %in% duplicated(firstmerge)))
+paste("This suggest a successful merge based on 3 different variables: cluster, household, barcode -- good!")
+
+##############################################################################################################
+##############################################################################################################
+########         EXCLUDING DHS METADATA BARCODES THAT WERE ON CONTAMINATED PCR PLATES       ##################
+##############################################################################################################
+##############################################################################################################
+missingqPCRdata$barcode <- toupper(missingqPCRdata$barcode) # fix upper issue - makes upper case 
+possiblefixissue <- anti_join(x=missingqPCRdata, y=firstmerge, by=c("barcode")) # are there barcodes in the missing qPCR data that's don't have a match in DHS
+paste("Are there barcodes in the contaminated plates that don't have a barcode match in the 2013 DHS:", length(possiblefixissue) > 0)
+paste("Which barcodes are they:", paste(possiblefixissue$barcode))
+paste("I am going to assume that the C6SOB issue is a O instead of 0 and have changed that.", 
+      "In addtion, the C5F9U barcode has a likely replacement in the DHS dataset in C5E9U -- have changed that as well.")
+
+missingqPCRdata$barcode[missingqPCRdata$barcode == "C6SOB"] <- "C6S0B" # Change for C6O to 0 
+missingqPCRdata$barcode[missingqPCRdata$barcode == "C5F9U"] <- "C5E9U" # Change for C5F to C5E
+
+paste("These are the barcodes that are in the DHS metadata file that we recieved dried blood spots for but that were contaminated on transport into the country:")
+firstmerge$barcode[(firstmerge$barcode %in% missingqPCRdata$barcode)]
+length(which(firstmerge$barcode %in% missingqPCRdata$barcode))
+paste("Now are all of the barcodes that were contaminated accounted for in the DHS:", length(which(firstmerge$barcode %in% missingqPCRdata$barcode)) == nrow(missingqPCRdata))
+paste("Am going to remove those contaminated barcodes from the DHS metadata to avoid future merge issues.")
+firstmerge <- firstmerge[!(firstmerge$barcode %in% missingqPCRdata$barcode), ]
+
+paste("Was the drop of the contaminated barcodes successful:", nrow(firstmerge) + nrow(missingqPCRdata) == 18257)
+
+```
+
+## Merge Metadata with PCR (pfLDH) data
+```{r PCR and Metadata merge, echo=F, eval=T, include=T}
+########################################################################
+##################            PCR DESCRIBE            ##################
+########################################################################
+
+paste("From above, there are", nrow(adult_pfldhpcr), "observations in the PCR dataset.")
+# paste("The following barcodes were duplicated in the pfLDH PCR data and will need to be resolved:", 
+#      adult_pfldhpcr$barcode[duplicated(adult_pfldhpcr$barcode)]) # resolve this
+paste("There are", length(levels(factor(adult_pfldhpcr$barcode))), "Unique PCR observations in the pfLDH dataset.")
+paste("There is a discordance between the DHS metadata and the PCR pfLDH dataset then in terms of samples.")
+
+adult_pfldhpcr$barcode <- toupper(adult_pfldhpcr$barcode) # go ahead and make this alll up case so no case insensitives
+adult_pfldhpcr$barcode[adult_pfldhpcr$barcode == "A 9V8N"] <- "A9V8N" # Go ahead and fix this now...
+########################################################################
+##################       PCR & METADATA MERGE         ##################
+########################################################################
+
+Alladults <- inner_join(x=adult_pfldhpcr, y = firstmerge, by=c("barcode"))
+paste("There is METADATA and PCR data for", nrow(Alladults), "observations.")
+
+
+```
+
+## Digging into Discordances 
+```{r, include=T, eval=T, echo=F}
+########################################################################
+##################         PCR Duplicates             ##################
+########################################################################
+#DuplicatesToFix <- adult_pfldhpcr$barcode[duplicated(adult_pfldhpcr$barcode)]
+#paste("PCR duplicates to fix --mentioned above:", factor(DuplicatesToFix))
+
+#DuplicatesToFix <- as.data.frame(adult_pfldhpcr[(adult_pfldhpcr$barcode %in% DuplicatesToFix),])
+
+
+
+########################################################################
+##################           METADATA ONLY DATA            #############
+########################################################################
+Mtdtonly <- firstmerge[!(firstmerge$barcode %in% Alladults$barcode), ]
+paste("There are", nrow(Mtdtonly), "observations with metadata only data.")
+
+########################################################################
+##################    PCR Discordance and Typos       ##################
+########################################################################
+ # Going to dig into this comparing the PCR only data with the metadata only
+
+
+TypostoFix <- data.frame()
+
+
+
+########################################################################
+##################           PCR ONLY DATA            ##################
+########################################################################
+PCRonly <- adult_pfldhpcr[!(adult_pfldhpcr$barcode %in% Alladults$barcode),]
+paste("There are", nrow(PCRonly), "observations with PCR only data.")
+paste("These are barcodes:") 
+levels(factor(PCRonly$barcode))
+
+
+
+
+
+########################################################################
+##################           Case Sensitive Typos     ##################
+########################################################################
+#paste("There looks to be a few other issues with case sensitive (i.e. some barcodes have a mix of lowercase and uppercase -- fixed this by going all upper).")
+#PCRonly$upperbarcode <- toupper(PCRonly$barcode)
+#paste("These are those instances of mix of lower case and upper case that have metadata:")
+#PCRonly$barcode[PCRonly$upperbarcode %in% Mtdtonly$barcode]
+# Bind this to typos to fix
+#TypostoFix <-  rbind(TypostoFix, PCRonly[(PCRonly$upperbarcode %in% Mtdtonly$barcode),])
+
+
+########################################################################
+##################             Length Typos           ##################
+########################################################################
+#paste("One observation is due to a typo in the PCR data: A 9V8N -- which should be A9V8N -- will need to erase space.")
+# Bind this to typos to fix
+# TypostoFix <-  rbind(TypostoFix, PCRonly[(PCRonly$barcode == "A 9V8N"),])
+
+paste("These observations have a string that is different from 5 characters (i.e. likely a typo):")
+PCRonly$barcode[nchar(PCRonly$barcode, type = "chars") != 5]
+# Bind this to typos to fix
+TypostoFix <-  rbind(TypostoFix, PCRonly[(nchar(PCRonly$barcode, type = "chars") != 5),])
+
+#TypostoFix <- TypostoFix[TypostoFix$barcode != "A 9V8N",] # will fix this one manually -- did this above
+
+########################################################################
+##################             1-off Typos            ##################
+########################################################################
+
+paste("Let's see if there are big differences in the barcodes between those in the PCR ONLY data and those in the METADATA ONLY data. GOING to allow for one character",
+      "differeces using the Hamming's Distance to see if there are common typos between the two dataframes.")
+stringsim <- as.data.frame(stringdistmatrix(PCRonly$barcode, Mtdtonly$barcode, method=c("hamming"), useNames = T))
+string_1off <- stringsim # make this one off and drop everything that isn't a 1 to NA -- want it this way so we keep rownames and colnames
+#str(string_1off)
+string_1off[string_1off == 2] <- NA
+string_1off[string_1off == 3] <- NA
+string_1off[string_1off == 4] <- NA
+string_1off[string_1off == 5] <- NA
+string_1off[string_1off == 6] <- NA
+string_1off[string_1off == Inf] <- NA
+
+
+paste("There are", length(which(!is.na(string_1off))), "that are 1-offs between the PCR only and metadata only Barcodes -- need to be evaluated for typos.")
+
+string_1off_writeout <- string_1off[rowSums(is.na(string_1off)) < ncol(string_1off), colSums(is.na(string_1off))<nrow(string_1off)] # to delete columns with all NAs
+
+
+
+######################################################################
+##################     Write out Tables             ##################
+######################################################################
+#write.table(x=DuplicatesToFix, file="/Volumes/sph/EPID/Congo-Malaria/share/1. Data/2. Data Set Processing/2013-14 Adult Database Construction /Datasets and code/Duplicatestofix.tab.txt", sep="\t", row.names = F, quote = F, na = "")
+write.table(x=TypostoFix, file="/Volumes/share/1. Data/2. Data Set Processing/2013-14 Adult Database Construction /Datasets and code/TypostoFix.tab.txt", sep="\t", row.names = F, quote = F, na = "")
+write.table(x=string_1off_writeout, file = "/Volumes/share/1. Data/2. Data Set Processing/2013-14 Adult Database Construction /Datasets and code/oneoffstoevaluate.tab.txt", sep="\t", row.names = T, quote = F, na = "")
+
+######################################################################
+##################      Correct TYPOS               ##################
+######################################################################
+# Note, I corrected duplicates above
+
+#adult_pfldhpcr$barcode[adult_pfldhpcr$barcode == "A 9V8N"] <- "A9V8N" # note, already did this above but for solidarity
+
+adult_pfldhpcr <- adult_pfldhpcr[adult_pfldhpcr$barcode != "K0F8X2", ] 
+adult_pfldhpcr <- adult_pfldhpcr[adult_pfldhpcr$barcode != "ES0H4E", ] 
+adult_pfldhpcr <- adult_pfldhpcr[adult_pfldhpcr$barcode != "II3P3E", ] 
+adult_pfldhpcr <- adult_pfldhpcr[adult_pfldhpcr$barcode != "X4W5", ] 
+adult_pfldhpcr <- adult_pfldhpcr[adult_pfldhpcr$barcode != "U0W4", ] 
+adult_pfldhpcr <- adult_pfldhpcr[adult_pfldhpcr$barcode != "O8PM", ] 
+adult_pfldhpcr <- adult_pfldhpcr[adult_pfldhpcr$barcode != "W3Q0", ] 
+adult_pfldhpcr <- adult_pfldhpcr[adult_pfldhpcr$barcode != "Q1W1", ] 
+adult_pfldhpcr <- adult_pfldhpcr[adult_pfldhpcr$barcode != "D66N1X", ] 
+
+
+
+#########################################################################################
+### Write out the adult pfldh pcr file which now has DNA plate map locations, too ######
+##########################################################################################
+#write.table(x=adult_pfldhpcr, file = "/Volumes/share/1. Data/2. Data Set Processing/2013-14 Adult Database Construction /Datasets and code/DRC_DHS2013_pfldhPCR_final_UPDATED.csv", sep=",", row.names = F, quote = F, na = "")
+
+
+
+```
+## Summary for Missing PCR Data
+_PCR Barcodes that were duplicated (2); 1 that had a space typo; 9 that had Barcodes of length other than 5 characters; 5 that were due to lower and upper case mixes; and 77 that have 1-off possible typos between missing PCR and DHS barcodes_. 
+
+# FINAL MERGE & Making VERSION 3 of the adult_pfldh results
+**I have manually deleted the duplicate values  and have deleted the 9 samples that have n!=5 characters in the version 2 document, as well as the A 9V8N to A9V8N correction (`DRC_DHS2013_pfldhPCR_final_V2`). The rest of the corrections will be done below in R. _The plan is to (1) change all barcodes to upper case for the case sensitive issue; (2) Using a Hamming's Distance, allow for barcodes that are left over in the PCR spreadsheet and do not have a match in the DHS data to have 1 mismatch_**. 
+```{r Version 2 and oneoff reshape, include=T, eval=T, echo=F}
+paste("Now reading in version 2 of the adult PfLDH PCR results")
+#adult_pfldhpcr_V2 <- read.csv("/Volumes/share/1. Data/2. Data Set Processing/2013-14 Adult Database Construction /Datasets and code/DRC_DHS2013_pfldhPCR_final_V2.csv", header=T)
+adult_pfldhpcr_V2 <- adult_pfldhpcr
+adult_pfldhpcr_V2$barcode <- toupper(adult_pfldhpcr_V2$barcode) # Fix case sensitives
+
+paste("Confirm that there is no more duplicated data -- do we have duplicated values?:", TRUE %in% c(duplicated(adult_pfldhpcr_V2$barcode)))
+########################################################################
+##################         Prelim Merge               ##################
+########################################################################
+
+prelim <- inner_join(x=adult_pfldhpcr_V2, y=firstmerge, by=c("barcode")) # initial merge just for correction of case sensitives and the manual corrections for the spaces and barcodes that were not equal to 5
+paste("IF WE WERE TO NOT ACCOUNT FOR ANY OF THE 1-OFF STRING BARCODE RENAMES we would have", nrow(prelim), "SAMPLES WITH PFLDH AND DHS METADATA RESULTS!")
+
+################### THIS IS WHAT WE ARE ADDING ON TO ^^^^^^^^^ ###############
+
+PCRonlyprelim <- adult_pfldhpcr_V2[!(adult_pfldhpcr_V2$barcode %in% prelim$barcode),]
+paste("Based on initial merge, just for correction of case sensitives and the manual corrections for the spaces and barcodes that were not equal to 5, there are:", nrow(PCRonlyprelim), "PCR results that have missing metadata.")
+
+mtdtonlyprelim <- firstmerge[!(firstmerge$barcode %in% prelim$barcode),]
+paste("Based on initial merge, just for correction of case sensitives and the manual corrections for the spaces and barcodes that were not equal to 5, there are:", nrow(mtdtonlyprelim), "metadata barcodes results that have missing PCR data.")
+
+
+
+########################################################################
+##################     Correction of OneOffs          ##################
+########################################################################
+
+oneoff <- string_1off_writeout
+oneoff$id <- rownames(string_1off_writeout)  
+oneoff <- melt(oneoff, na.rm=T)  # melt to long format for side by side
+oneoff <- oneoff[,c(1:2)]
+colnames(oneoff) <- c("barcode", "NFBbarcode")
+
+paste("We now have a proposal of the barcodes that were missing in both the PCR and DHS data and were off by a single character (using Hamming's Distance).")
+levels(factor(oneoff$barcode))
+paste("However, one observation P2A0F and P2N0F overlap with their respective typose of P2A0R and P2NOF equally (despite being more appropriate).", "Elected to delete the P2A0F/P2N0F row for simplicity")
+# paste("Similarly, there was one observation G9O3J that had to different potential matches in the DHS only data: G9Q3J or G9O3H.",
+#      "Clear this should be the G9Q3J instance and as a result the row with G903J/G9O3H was deleted.") # got rid of this by the missing qPCR data
+
+oneoff <- subset(oneoff, !(oneoff$barcode == "P2A0F" & oneoff$NFBbarcode == "P2N0F"))
+# oneoff <- subset(oneoff, !(oneoff$barcode == "G9O3J" & oneoff$NFBbarcode == "G9O3H")) # got rid of this by the missing qPCR data
+
+paste("As such there are", nrow(oneoff), "that are 1-offs between the PCR only and metadata only Barcodes that are being changed.")
+paste("Are there duplicated values in the old one off barcode names:", TRUE %in% duplicated(oneoff$barcode))
+paste("Are there duplicated values in the NEW one off barcode names:", TRUE %in% duplicated(oneoff$NFBbarcode))
+
+write.table(x=oneoff, file = "/Volumes/share/1. Data/2. Data Set Processing/2013-14 Adult Database Construction /Datasets and code/oneoffstoevaluate_LONGFORMAT.tab.txt", sep="\t", row.names = T, quote = F, na = "")
+
+
+paste("Now implement the new barcodes in the adult PfLDH dataframe.")
+
+########################################################################
+##################          FINAL Merge               ##################
+########################################################################
+
+adult_pfldhpcr_V3.1 <- left_join(x=adult_pfldhpcr_V2, y=oneoff, by=c("barcode"))
+paste("How many barcodes did we replace:", length(which(!is.na(adult_pfldhpcr_V3.1$NFBbarcode))), "and does it match our expectation:", length(which(!is.na(adult_pfldhpcr_V3.1$NFBbarcode))) == 75)
+adult_pfldhpcr_V3.1$NFBbarcode <- as.character(adult_pfldhpcr_V3.1$NFBbarcode) # need to convert back to character from factor so that the NA and other factors can be understood
+adult_pfldhpcr_V3.1$NFBbarcode[is.na(adult_pfldhpcr_V3.1$NFBbarcode)] <- adult_pfldhpcr_V3.1$barcode[is.na(adult_pfldhpcr_V3.1$NFBbarcode)]
+paste("Do the NFBbarcode and the barcode match except for the 75 replacements:", sum(!(adult_pfldhpcr_V3.1$barcode == adult_pfldhpcr_V3.1$NFBbarcode)) == 75)
+paste("Now replacing the NFBbarcode with the barcode column and dropping the NFBbarcode column")
+adult_pfldhpcr_V3.1$barcode <- adult_pfldhpcr_V3.1$NFBbarcode
+adult_pfldhpcr_V3.1 <- adult_pfldhpcr_V3.1[,!(colnames(adult_pfldhpcr_V3.1) %in% c("NFBbarcode"))]
+  
+paste("NOW PERFORMING FINAL MERGE")
+finaladultdatset <- inner_join(x=adult_pfldhpcr_V3.1, y=firstmerge, by=c("barcode"))
+
+
+
+
+
+```
+
+## FINAL PCR Result Data Exploration
+```{r Data Exploration of PCR Results Final, include=T, echo=F}
+paste("Looking at the PCR values for the final adult dataset")
+
+summary(finaladultdatset[,c(1:20)])
+
+paste("Based on summaries, there appears to be a few outliers in the FSQ1/2 and VCQ1/2 that correspond to very high/unrealistic parasitemic levels of human DNA levels.")
+paste("However, these are a few select outliers. Note have a ylimit at 50 to show these outliers for all histograms below.")
+hist(finaladultdatset$FSQ1, ylim = c(0,50))
+hist(finaladultdatset$FSQ2, ylim = c(0,50))
+hist(finaladultdatset$VSQ1, ylim = c(0,50))
+hist(finaladultdatset$VSQ2, ylim = c(0,50))
+
+
+```
+
+
+### Last Look at Discordance
+```{r Final Look at Discordnace, include=T, echo=F}
+
+###############################################################################
+##################           DHS ONLY DATA ROUND 2           ##################
+##############################################################################
+DHSonlyrd2 <- firstmerge[!(firstmerge$barcode %in% finaladultdatset$barcode),]
+paste("Adult DHS barcodes with discordant/missing results between PCR and DHS, which is approximately:", length(levels(factor(DHSonlyrd2$barcode))), "samples.")
+paste("Are these missing DHS barcode/samples due to the fact they didn't grant consent to be tested fro HIV and therefore did not have a blood spot:", levels(factor(DHSonlyrd2$HA61)))
+
+paste("These missing DHS barcodes without PCR/DBS samples do not appear to be due to HIV consent, anemia consent, or malaria consent.")
+paste("Am going to just assume they are missing or were lost in transit...")
+
+
+###############################################################################
+##################           PCR ONLY DATA ROUND 2           ##################
+##############################################################################
+PCRonlyrd2 <- adult_pfldhpcr_V3.1[!(adult_pfldhpcr_V3.1$barcode %in% finaladultdatset$barcode),]
+paste("Adult PCR barcodes with discordant/missing results between PCR and DHS, which is approximately:", length(levels(factor(PCRonlyrd2$barcode))), "samples.")
+levels(factor(PCRonlyrd2$barcode))
+
+
+paste("PCR only data that remains:", nrow(PCRonlyrd2), "which matches our expectation of having 25 values missing still that were not accounted for by duplication",
+      "being case sensitive or having a hamming's distance of 1:", nrow(PCRonlyrd2) == 25)
+
+
+paste("Going to look at Hamming Distance of these 25 again...")
+stringsim <- as.data.frame(stringdistmatrix(PCRonlyrd2$barcode, DHSonlyrd2$barcode, method=c("hamming"), useNames = T))
+string_1off_leftover <- stringsim # make this one off and drop everything that isn't a 1 to NA -- want it this way so we keep rownames and colnames
+#str(string_1off)
+# string_1off[string_1off == 2] <- NA
+# string_1off[string_1off == 3] <- NA
+# string_1off[string_1off == 4] <- NA
+# string_1off[string_1off == 5] <- NA
+# string_1off[string_1off == 6] <- NA
+string_1off_leftover[string_1off_leftover == Inf] <- NA
+
+paste("Going to leave this 25 missing alone as they are lost to us.")
+
+oneoffleftover <- string_1off_leftover
+oneoffleftover$id <- rownames(string_1off_leftover)  
+oneoffleftover <- melt(oneoffleftover, na.rm=T)  # melt to long format for side by side
+oneoffleftover <- oneoffleftover[,c(1:2)]
+colnames(oneoffleftover) <- c("barcode", "Typobarcode")
+
+
+paste("These 25 have no real good match. Going to assume typos are not recoverable...")
+
+```
+
+## Merging in Spatial Data 
+```{r MergeSpatialData, include=T, warning=F, echo=F}
+
+########################################################################
+###########    Adding in GPS Coordinates by Clusters          ########## 
+########################################################################
+
+DRCshp13 <- shapefile("/Volumes/share/1. Data/1. Raw Data/DRC DHS 2013/CD_2013-14_DHS_01272017_1428_51168/cdge61fl/CDGE61FL.shp")
+
+DRC13shpdf <- data.frame(DRCshp13$DHSCLUST, DRCshp13$LATNUM, DRCshp13$LONGNUM, stringsAsFactors = F)
+
+paste("Clusters with Lat and Long of 0,0 were not able to be identified and should have coordinates set to NA:")
+missingclusters <- DRC13shpdf$DRCshp13.DHSCLUST[DRC13shpdf$DRCshp13.LATNUM == 0 & DRC13shpdf$DRCshp13.LONGNUM == 0]
+missingclusters
+DRC13shpdf$DRCshp13.LATNUM[DRC13shpdf$DRCshp13.LATNUM == 0 ] <- NA
+DRC13shpdf$DRCshp13.LONGNUM[DRC13shpdf$DRCshp13.LONGNUM == 0] <- NA
+paste("Confirm set columns to NA:", !FALSE %in% (DRC13shpdf$DRCshp13.DHSCLUST[is.na(DRC13shpdf$DRCshp13.LATNUM)] %in% missingclusters))
+
+
+colnames(DRC13shpdf)[1] <- c("cluster")
+
+finaladultdatset <- left_join(x = finaladultdatset, y=DRC13shpdf, by=c("cluster"))
+
+
+
+```
+
+
+
+
+
+### Writing Files Out
+```{r, include=T, warning=F, echo=T}
+
+###############################################################################
+##################             Writing File OUT             ##################
+##############################################################################
+adult_pfldhpcr_V3.2 <- finaladultdatset[,c(1:20)]
+write.csv(x=adult_pfldhpcr_V3.2, file="/Volumes/share/1. Data/2. Data Set Processing/2013-14 Adult Database Construction /Datasets and code/adult_pfldhpcr_V3.csv", quote=F, row.names=F, col.names = T, na = "")
+
+
+write.csv(x=finaladultdatset, file="/Volumes/share/1. Data/2. Data Set Processing/2013-14 Adult Database Construction /Datasets and code/alladults_V3.csv", quote=F, row.names=F, col.names = T, na = "")
+
+```

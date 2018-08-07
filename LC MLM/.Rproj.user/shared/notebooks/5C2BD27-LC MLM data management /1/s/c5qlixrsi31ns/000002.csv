@@ -1,0 +1,8 @@
+"0","cluster13 <- DHSChildrenU5 %>% 
+  dplyr::group_by(hv001) %>%
+  dplyr::summarise(total=n(), positive = sum(result), weight = mean(hv005)/1000000)
+"
+"2","package ‘bindrcpp’ was built under R version 3.4.4"
+"0","cluster13$weighted_total <- cluster13$total*cluster13$weight"
+"0","cluster13$weighted_pos <- cluster13$positive*cluster13$weight"
+"0","cluster13$prevalence <- cluster13$weighted_pos / cluster13$weighted_total"

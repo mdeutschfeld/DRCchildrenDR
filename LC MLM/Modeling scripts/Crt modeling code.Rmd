@@ -1,0 +1,93 @@
+---
+title: "Crt modeling code"
+author: "Molly"
+date: "July 24, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+### loading necessary libraries and uploading data
+library(lme4)
+
+#reading data 
+ind_full <- read.csv("~/Desktop/Loved Children/LC MLM/LC_merged.csv")
+```
+
+```{r}
+####### CRT ########
+### running poisson model with weights 
+
+CRT_1 <- glmer(CRT  ~ PrevPct10 + (1|year/province), 
+               data = ind_full, 
+               family=poisson(link = "log"),
+               weights = ind_full$weight)
+summary(CRT_1)
+
+CRT_2 <- glmer(CRT  ~ Chlor10 + (1|year/province), 
+               data = ind_full, 
+               family=poisson(link = "log"),
+               weights = ind_full$weight)
+summary(CRT_2)
+
+CRT_3 <- glmer(CRT  ~ wealthindex 
+               + (1|year/province), 
+               data = ind_full, 
+               family=poisson(link = "log"),
+               weights = ind_full$weight)
+summary(CRT_3)
+
+CRT_4 <- glmer(CRT  ~ wealth_mean 
+               + (1|year/province), 
+               data = ind_full, 
+               family=poisson(link = "log"),
+               weights = ind_full$weight)
+summary(CRT_4)
+
+CRT_5 <- glmer(CRT  ~ mixed 
+               + (1|year/province), 
+               data = ind_full, 
+               family=poisson(link = "log"),
+               weights = ind_full$weight)
+summary(CRT_5)
+
+CRT_6 <- glmer(CRT  ~ pctedu0 
+               + (1|year/province), 
+               data = ind_full, 
+               family=poisson(link = "log"),
+               weight = ind_full$weight)
+summary(CRT_6)
+
+CRT_6_test <- glmer(CRT  ~ pctedu0 
+               + (1|province), 
+               data = ind_full, 
+               family=poisson(link = "log"),
+               weight = ind_full$weight)
+# removing the random effect for year to see if it converges 
+summary(CRT_6_test)
+
+CRT_7 <- glmer(CRT  ~ urban1rural0 
+               + (1|year/province), 
+               data = ind_full, 
+               family=poisson(link = "log"),
+               weight = ind_full$weight)
+summary(CRT_7)
+
+CRT_8 <- glmer(CRT  ~ total 
+               + (1|province), 
+               data = ind_full, 
+               family=poisson(link = "log"),
+               weight = ind_full$weight)
+summary(CRT_8)
+
+CRT_8_test <- glmer(CRT  ~ weighted_total 
+               + (1|province), 
+               data = ind_full, 
+               family=poisson(link = "log"),
+               weight = ind_full$weight)
+summary(CRT_8_test)
+```
+

@@ -1,0 +1,14 @@
+
+adult_merged <- merge(CDKR50FL, adult_pfldh, by.x = "")
+
+
+pcrpos <- table(adult_pfldh$`PFLDH+`)
+pcrpos
+
+plate_map <- 
+  
+  
+adult_pfldhpcr <- adult_pfldh
+pltmp <- plate_map
+
+adult_pfldhpcr <- left_join(x = adult_pfldhpcr, y = pltmp, by.x = "Well1", by.y = "barcode")
