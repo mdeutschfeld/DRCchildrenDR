@@ -1,0 +1,8 @@
+"0","kids_full$cluster = kids_full$cluster + 0.5
+kids_full$province = kids_full$province + 0.5
+# binding it all together for our final combined data set 
+ind_full <- rbind(kids_full, adult_full)
+"
+"2","Error in rbind(deparse.level, ...) : 
+  numbers of columns of arguments do not match
+"

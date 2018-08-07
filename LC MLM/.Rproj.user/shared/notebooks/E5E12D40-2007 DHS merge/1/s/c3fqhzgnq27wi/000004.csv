@@ -1,0 +1,55 @@
+"0","### loading libraries "
+"0","library(plyr)"
+"0","library(dplyr)"
+"2","
+Attaching package: ‘dplyr’
+
+"
+"2","The following objects are masked from ‘package:plyr’:
+
+    arrange, count, desc, failwith, id, mutate, rename, summarise, summarize
+
+"
+"2","The following objects are masked from ‘package:stats’:
+
+    filter, lag
+
+"
+"2","The following objects are masked from ‘package:base’:
+
+    intersect, setdiff, setequal, union
+
+"
+"0","#library(xlsx)"
+"0","library(tidyverse)"
+"2","[30m── [1mAttaching packages[22m ───────────────────────────────────────────────── tidyverse 1.2.1 ──[39m
+"
+"2","[30m[32m✔[30m [34mggplot2[30m 2.2.1     [32m✔[30m [34mreadr  [30m 1.1.1
+[32m✔[30m [34mtibble [30m 1.4.2     [32m✔[30m [34mpurrr  [30m 0.2.5
+[32m✔[30m [34mtidyr  [30m 0.8.1     [32m✔[30m [34mstringr[30m 1.3.1
+[32m✔[30m [34mggplot2[30m 2.2.1     [32m✔[30m [34mforcats[30m 0.3.0[39m
+"
+"2","package ‘stringr’ was built under R version 3.4.4"
+"2","[30m── [1mConflicts[22m ──────────────────────────────────────────────────── tidyverse_conflicts() ──
+[31m✖[30m [34mdplyr[30m::[32marrange()[30m   masks [34mplyr[30m::arrange()
+[31m✖[30m [34mpurrr[30m::[32mcompact()[30m   masks [34mplyr[30m::compact()
+[31m✖[30m [34mdplyr[30m::[32mcount()[30m     masks [34mplyr[30m::count()
+[31m✖[30m [34mdplyr[30m::[32mfailwith()[30m  masks [34mplyr[30m::failwith()
+[31m✖[30m [34mdplyr[30m::[32mfilter()[30m    masks [34mstats[30m::filter()
+[31m✖[30m [34mdplyr[30m::[32mid()[30m        masks [34mplyr[30m::id()
+[31m✖[30m [34mdplyr[30m::[32mlag()[30m       masks [34mstats[30m::lag()
+[31m✖[30m [34mdplyr[30m::[32mmutate()[30m    masks [34mplyr[30m::mutate()
+[31m✖[30m [34mdplyr[30m::[32mrename()[30m    masks [34mplyr[30m::rename()
+[31m✖[30m [34mdplyr[30m::[32msummarise()[30m masks [34mplyr[30m::summarise()
+[31m✖[30m [34mdplyr[30m::[32msummarize()[30m masks [34mplyr[30m::summarize()[39m
+"
+"0","#install.packages(""stringdist"")"
+"0","library(stringdist)"
+"2","package ‘stringdist’ was built under R version 3.4.4"
+"0","library(haven)"
+"0","### loading datasets "
+"0","### Most_Congo is Steve Taylor's original data set from the 2007 DHS paper "
+"0","### dhps_only is the data ST sent from his 2013 dhps analysis "
+"0","MoST_Congo <- read_dta(""~/Documents/UNC/Meshnick Lab /DRC DHS data/2007 data/MoST-Congo.dta"")"
+"0","dhps_only <- readxl::read_xlsx(""~/Documents/UNC/Meshnick Lab /DRC DHS data/2007 data/adult_dhps_only.xlsx"")"
+"0","adult_dhs <- read.csv(""~/Documents/UNC/Meshnick Lab /DRC DHS data/2007 data/AdultsDHS_2007.csv"")"

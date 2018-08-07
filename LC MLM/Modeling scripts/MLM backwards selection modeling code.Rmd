@@ -1,0 +1,299 @@
+---
+title: "MLM backwards selection modeling code"
+author: "Molly"
+date: "May 21, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+### loading necessary libraries and uploading data
+library(lme4)
+ind_full <- read.csv("~/Desktop/Loved Children/LC MLM/LC_merged.csv")
+
+```
+
+```{r}
+##################################
+#### Backwards selection models ###
+##################################
+
+## since most people use backwards selection methods for risk factor analyses - it is a good idea to see if the results from the univariate model match those from a backwards selection model 
+# for this will will start with a fully adjusted model and remove covariates one by one, starting with the covariate with the highest p-value. Once all covaraites have p-values under 0.05 we will have our final model 
+## using any DHPS mutation as the outcome 
+
+multi_full <- glmer(dhps_mut  ~ prevalence 
+                    + wealth_mean
+                    + wealthindex 
+                    + mixed 
+                    + FansPercent
+                    + pctedu0
+                    + urban1rural0 
+                    + weighted_total
+                    + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(multi_full)
+
+## wealth_mean has the highest p-value - will remove for next model 
+
+multi_red1 <- glmer(dhps_mut  ~ prevalence 
+                    # wealth_mean
+                    + wealthindex 
+                    + mixed 
+                    + FansPercent
+                    + pctedu0
+                    + urban1rural0 
+                    + weighted_total
+                    + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(multi_red1)
+
+# urban variable has highest p-value - will remove for next model 
+
+multi_red2 <- glmer(dhps_mut  ~ prevalence 
+                    # wealth_mean
+                    + wealthindex 
+                    + mixed 
+                    + FansPercent
+                    + pctedu0
+                    # urban1rural0 
+                    + total 
+                    + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(multi_red2)
+
+# prevalence has highest p-value - will remove for next model 
+
+multi_red3 <- glmer(dhps_mut  ~ #prevalence 
+                    # wealth_mean
+                    + wealthindex 
+                    + mixed 
+                    + FansPercent
+                    + pctedu0
+                    # urban1rural0 
+                    + weighted_total
+                    + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(multi_red3)
+
+# education has highest p-value - will remove for next model 
+
+multi_red4 <- glmer(dhps_mut  ~ #prevalence 
+                    # wealth_mean
+                    # wealthindex 
+                    + mixed 
+                    + FansPercent
+                    # pctedu0
+                    # urban1rural0 
+                    + weighted_total 
+                    + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(multi_red4)
+
+# Fansidar use has highest p-value - will remove for next model 
+
+multi_red5 <- glmer(dhps_mut  ~ #prevalence 
+                    # wealth_mean
+                    # wealthindex 
+                    + mixed 
+                    # FansPercent
+                    # pctedu0
+                    # urban1rural0 
+                    + weighted_total 
+                    + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(multi_red5)
+
+# prevalence has highest p-value 
+
+multi_red6 <- glmer(dhps_mut  ~ #prevalence 
+                    # wealth_mean
+                    # wealthindex 
+                    + mixed 
+                    # FansPercent
+                    # pctedu0
+                    # urban1rural0 
+                    # weighted_total 
+                    + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(multi_red6)
+
+# only the mixed variable shows a significant association - final model is a univariate model - this does agree with the results from the univariate analyses 
+
+```
+
+```{r}
+#### now using only K540E as the outcome 
+
+K540E_full <- glmer(K540E  ~ prevalence 
+                    + wealth_mean
+                    + wealthindex 
+                    + mixed 
+                    + FansPercent
+                    + pctedu0
+                    + urban1rural0 
+                    + weighted_total 
+                    + (1|province), data = ind_full, family=poisson(link = "log"))
+summary(K540E_full)
+
+# removing wealth index 
+
+K540E_red1 <- glmer(K540E  ~ prevalence 
+                    + wealth_mean
+                    # wealthindex 
+                    + mixed 
+                    + FansPercent
+                    + pctedu0
+                    + urban1rural0 
+                    + weighted_total 
+                    + (1|province), data = ind_full, family=poisson(link = "log"))
+summary(K540E_red1)
+
+# removing weighted total  
+
+K540E_red2 <- glmer(K540E  ~ prevalence 
+                    + wealth_mean
+                    # wealthindex 
+                    + mixed 
+                    + FansPercent
+                    + pctedu0
+                    + urban1rural0 
+                    # weighted_total 
+                    + (1|province), data = ind_full, family=poisson(link = "log"))
+summary(K540E_red2)
+
+#removing education 
+
+K540E_red3 <- glmer(K540E  ~ prevalence 
+                    + wealth_mean
+                    # wealthindex 
+                    + mixed 
+                    + FansPercent
+                    # pctedu0
+                    + urban1rural0 
+                    # weighted_total 
+                    + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(K540E_red3)
+
+#removing urban 
+
+K540E_red4 <- glmer(K540E  ~ prevalence 
+                    + wealth_mean
+                    # wealthindex 
+                    + mixed 
+                    + FansPercent
+                    # pctedu0
+                    # urban1rural0 
+                    # weighted_total 
+                    + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(K540E_red4)
+
+# removing wealth mean 
+
+K540E_red5 <- glmer(K540E  ~ prevalence 
+                    # wealth_mean
+                    # wealthindex 
+                    + mixed 
+                    + FansPercent
+                    # pctedu0
+                    # urban1rural0 
+                    # weighted_total 
+                    + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(K540E_red5)
+
+
+# removing prevalence 
+K540E_red6 <- glmer(K540E  ~ #prevalence 
+                    # wealth_mean
+                    # wealthindex 
+                    + mixed 
+                    + FansPercent
+                    # pctedu0
+                    # urban1rural0 
+                    # weighted_total 
+                    + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(K540E_red6)
+
+
+# all remaining variables (prevalence, mixed, and Fansidar %) show highly significant associations
+# this differs slightly from the univariate models were prevalence showed only a slight association (p = 0.11)
+```
+
+```{r}
+## CRT mutations 
+
+CRT_full <- glmer(CRT  ~ prevalence 
+                    + wealth_mean
+                    + wealthindex 
+                    + mixed 
+                    + ChlorPercent
+                    + pctedu0
+                    + urban1rural0 
+                    + weighted_total 
+                    + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(CRT_full)
+
+# removing wealth index 
+
+CRT_red1 <- glmer(CRT  ~ prevalence 
+                    + wealth_mean
+                    #+ wealthindex 
+                    + mixed 
+                    + ChlorPercent
+                    + pctedu0
+                    + urban1rural0 
+                    + weighted_total 
+                    + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(CRT_red1)
+
+# removing mixed infections  
+
+CRT_red2 <- glmer(CRT  ~ prevalence 
+                    + wealth_mean
+                    # wealthindex 
+                    #+ mixed 
+                    + ChlorPercent
+                    + pctedu0
+                    + urban1rural0
+                    + weighted_total 
+                    + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(CRT_red2)
+
+# removing chloroqine percent -- this data is super spotty and likely not trustworthy 
+
+CRT_red3 <- glmer(CRT  ~ prevalence 
+                    + wealth_mean
+                    # wealthindex 
+                    # mixed 
+                    # ChlorPercent
+                    + pctedu0
+                    + urban1rural0 
+                    + weighted_total
+                    + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(CRT_red3)
+
+# removing total
+
+CRT_red4 <- glmer(CRT  ~ #prevalence 
+                    + wealth_mean
+                    # wealthindex 
+                    # mixed 
+                    # ChlorPercent
+                    + pctedu0
+                    + urban1rural0 
+                    #+ weighted_total
+                    + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(CRT_red4)
+
+# removing education 
+
+CRT_red5 <- glmer(CRT  ~ #prevalence 
+                    # wealth_mean
+                    # wealthindex 
+                    # mixed 
+                    # ChlorPercent
+                    + pctedu0
+                    # urban1rural0 
+                    + (1|year/province), data = ind_full, family=poisson(link = "log"))
+summary(CRT_red5)
+
+# urbanicity and education are on the border of signifiance - wealth mean is below the 0.05 threshold 
+# this differs slightly from the univariate models which identified wealth and education as risk factors - in this model education did not reach our threshold for significance but it was one of the final variables to be removed and had a p-value of ~ 0.10 
+```
+

@@ -1,0 +1,218 @@
+---
+title: "DHPS merge code"
+author: "Molly"
+date: "July 19, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(haven)
+library(readxl)
+#install.packages("nnet")
+#library(nnet)
+
+# start with reading in the combo data - a data set that has the cluster level covariates for both 2007 and 2013
+combo <- read.csv("~/Documents/UNC/Meshnick Lab /DRC DHS data/Loved Children/COMBINED.csv")
+
+
+## reading in the 2013 kids data set and the kids DHS covariates 
+mipfull2 <- read_tsv("~/Desktop/mutation_summary.tsv")
+DHSChildrenU5 <- read.csv("~/Documents/UNC/Meshnick Lab /DRC DHS data/Kids databases/Copy of DataFullKids.csv")
+
+## reading in adult 2007 data 
+MoST_Congo <- read_dta("~/Documents/UNC/Meshnick Lab /DRC DHS data/2007 data/MoST-Congo.dta")
+dhps_only <- readxl::read_xlsx("~/Documents/UNC/Meshnick Lab /DRC DHS data/2007 data/adult_dhps_only.xlsx")
+
+```
+
+```{r}
+#########################
+######## 2013 data ######
+########################
+## subsetting only the DHPS SNPs 
+
+dhps_sub <- subset(mipfull2, mipfull2$POS ==549685 | mipfull2$POS == 550117 | mipfull2$POS == 549993 | mipfull2$POS == 403625)
+dhps_gt <- dhps_sub[c(1,5,52,54)]
+
+## 
+#dhps_nomiss <- as.data.frame(subset(dhps_gt, !is.na(dhps_gt$`Binary Genotype Call`)))
+dhps_nomiss <- as.data.frame(dhps_gt)
+
+
+A437G <- subset(dhps_nomiss, dhps_nomiss$POS == 549685)
+A437G$A437G[A437G$`Binary Genotype Call` == "MUT"] <-1
+A437G$A437G[A437G$`Binary Genotype Call` == "WT"] <-0
+
+K540E <- as.data.frame(subset(dhps_nomiss, dhps_nomiss$POS == 549993))
+K540E$K540E[K540E$`Binary Genotype Call` == "MUT"] <-1
+K540E$K540E[K540E$`Binary Genotype Call` == "WT"] <-0
+
+A581G <- as.data.frame(subset(dhps_nomiss, dhps_nomiss$POS == 550117))
+A581G$A581G[A581G$`Binary Genotype Call` == "MUT"] <-1
+A581G$A581G[A581G$`Binary Genotype Call` == "WT"] <-0
+
+
+dhps_merged <- merge(A437G, K540E, by = "Sample ID")
+dhps_merged <- merge(dhps_merged, A581G, by = "Sample ID")
+## making a mixed infection variable 
+dhps_merged$mixed <- apply(dhps_merged, 1, function(x){as.numeric(any(x == "MIX", na.rm = T))}) #shit I love this function 
+
+## subsetting just the SNP calls 
+dhps_snps <- dhps_merged[c("Sample ID", "A437G", "K540E", "A581G", "mixed")]
+
+## making  barcode variable
+dhps_snps$Barcode <- sub("-SM-1", "", dhps_snps$`Sample ID`, fixed = T)
+dhps_snps$Barcode <- str_sub(dhps_snps$Barcode, -5)
+
+### need to drop the controls - merged kids 2013 data 
+dhps_snps <- merge(dhps_snps, DHSChildrenU5, by.x="Barcode", by.y = "sh312")
+
+```
+
+```{r}
+#########################
+######## 2007 data ######
+########################
+## merging both 2007 data sets 
+adult_merged <- merge(dhps_only, MoST_Congo, by = "barcode")
+
+# subsetting only the SNP and cluster columns 
+## keeping individual covariates we think are important: wealth index 
+# v024 and mv024 are both province variables but some people have missing for one but info for the other
+
+dhs_sub <- adult_merged[c("barcode", "d437", "d540", "d581", "mv024", "v024", "wealthindex", "cluster", "mv005", "sampleweight", "falcipprev")]
+#dhs_sub <- adult_merged[c(1:6, "mv024", "v024", "wealthindex", "cluster", "mv005")]## not sure why this didn't work 
+
+dhs_sub$mv024[is.na(dhs_sub$mv024)] <- 0 # making these zero so we can add the two columns together
+dhs_sub$v024[is.na(dhs_sub$v024)] <- 0
+dhs_sub$province <- (dhs_sub$mv024 + dhs_sub$v024) # creating combined province variable 
+
+## changing SNP coding to be NA,0,1 
+## also changing column name so it matches 2013
+dhs_sub$A437G[dhs_sub$d437 == 0] <- NA
+dhs_sub$A437G[dhs_sub$d437 == 1] <- 0
+dhs_sub$A437G[dhs_sub$d437 == 2 | dhs_sub$d437 == 3] <- 1
+
+dhs_sub$K540E[dhs_sub$d540 == 0] <- NA
+dhs_sub$K540E[dhs_sub$d540 == 1] <- 0
+dhs_sub$K540E[dhs_sub$d540 == 2 | dhs_sub$d540 == 3] <- 1
+
+
+dhs_sub$A581G[dhs_sub$d581 == 0] <- NA
+dhs_sub$A581G[dhs_sub$d581 == 1] <- 0
+dhs_sub$A581G[dhs_sub$d581 == 2 | dhs_sub$d581 == 3] <- 1
+
+
+#making a variable for mixed infections 
+dhs_sub$mixed[dhs_sub$d437 == 3 | dhs_sub$d540 == 3 | dhs_sub$d581 == 3] <- 1
+dhs_sub$mixed[dhs_sub$d437 != 3 & dhs_sub$d540 != 3 & dhs_sub$d581 != 3] <- 0
+
+
+
+## creating a sampleweight variable 
+
+dhs_sub$samp_weight <- dhs_sub$mv005/1000000
+```
+
+```{r}
+## now selecting the variables for the MLM 
+## keeping barcode, SNP data, mixed column, 
+adult_ind<- dhs_sub[c("barcode", "wealthindex", "cluster", "province", "A437G", "K540E", "A581G", "mixed", "samp_weight")]
+
+## hv270 is the wealth variable 
+kids_ind<- dhps_snps[c("Barcode", "A437G", "K540E", "A581G", "mixed", "hv001", "hv270", "hv024", "hv005")]
+kids_ind$samp_weight <- kids_ind$hv005/1000000
+kids_ind$hv005 <- NULL
+
+## changing some variable name so we can combine these 
+colnames(kids_ind)[1]<- "barcode"
+colnames(kids_ind)[6]<- "cluster"
+colnames(kids_ind)[7]<- "wealthindex"
+colnames(kids_ind)[8]<- "province"
+
+colnames(adult_ind)[1] <- "barcode"
+```
+
+```{r}
+## now looking at some of the cluster level covariate 
+## using dplyr to get cluster level malaria prevalence
+## will use the total variable as our proxy for cluster population density 
+## going to try to incorporate sample weights 
+
+
+cluster13 <- DHSChildrenU5 %>% 
+  dplyr::group_by(hv001) %>%
+  dplyr::summarise(total=n(), positive = sum(result), weight = mean(hv005)/1000000)
+
+cluster13$weighted_total <- cluster13$total*cluster13$weight
+cluster13$weighted_pos <- cluster13$positive*cluster13$weight
+
+cluster13$prevalence <- cluster13$weighted_pos / cluster13$weighted_total
+
+
+
+
+cluster07 <- MoST_Congo %>% 
+  dplyr::group_by(cluster) %>%
+  dplyr::summarise(total=n(), positive = sum(falciparum_final), weight = mean(mv005, na.rm = T)/1000000)
+
+
+cluster07$weighted_total <- cluster07$total*cluster07$weight
+cluster07$weighted_pos <- cluster07$positive*cluster07$weight
+
+cluster07$prevalence <- cluster07$weighted_pos / cluster07$weighted_total
+
+
+## mering the individual covariates with the cluster level covariates 
+kids_cluster <- subset(combo, combo$year == 2013) 
+kids_full <- merge(kids_ind, kids_cluster, by ="cluster")
+kids_full <- merge(kids_full, cluster13, by.x= "cluster", by.y="hv001")
+
+adult_cluster <- subset(combo, combo$year == 2007)
+adult_full <- merge(adult_ind, adult_cluster, by="cluster")
+adult_full <- merge(adult_full, cluster07, by.x="cluster")
+  # final adult data 
+```
+
+```{r}
+# staggaring the cluster variable so that 2007 and 2013 dont overlap 
+kids_full$cluster = kids_full$cluster + 0.5
+kids_full$province = kids_full$province + 0.5
+
+# binding it all together for our final combined data set 
+dhps_full <- rbind(kids_full, adult_full)
+```
+
+```{r}
+# okay! Now we have a combined data set -- need to make a joint dhps mutation outcome variable 
+
+dhps_full$dhps_mut[dhps_full$A437G == 1 | dhps_full$A581G == 1 | dhps_full$K540E == 1] <-1 
+dhps_full$dhps_mut[dhps_full$A437G == 0 & dhps_full$A581G == 0 & dhps_full$K540E == 0] <-0 
+
+# also going to make a binary year variable 
+
+dhps_full$yearbin[dhps_full$year == 2007] <- 0
+dhps_full$yearbin[dhps_full$year == 2013] <- 1
+
+## re-scaling the Fansidar and Chloroquine variables so that it makes more sense/ 
+dhps_full$Fansidar1 <- dhps_full$FansPercent*100 ## will give us effect per 1% increase in fans
+dhps_full$Fansidar10 <- dhps_full$FansPercent*10 ## will give effect per 10% increase 
+dhps_full$Chlor1 <- dhps_full$ChlorPercent*100
+dhps_full$Chlor10 <- dhps_full$ChlorPercent*10
+
+
+#re-scaling the prevalence variable 
+dhps_full$PrevPct <- dhps_full$prevalence*100 ## effect per 10% increase in prevalence 
+dhps_full$PrevPct10 <- dhps_full$prevalence*10 ## effect per 10% increase in prevalence 
+
+### writing final data set for modeling 
+write.csv(dhps_full, "~/Desktop/Loved Children/LC MLM/dhps_merged.csv")```
+
+
+

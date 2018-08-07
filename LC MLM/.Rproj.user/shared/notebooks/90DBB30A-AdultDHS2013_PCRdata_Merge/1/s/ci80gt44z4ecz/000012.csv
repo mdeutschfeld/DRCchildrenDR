@@ -1,0 +1,7 @@
+"0","##########################################################################
+##########            Plate Map MERGE with qPCR DATA            ##########     
+##########################################################################
+adult_pfldhpcr <- left_join(x = adult_pfldhpcr, y = pltmp, by = c(""barcode""))
+"
+"2","Error: `by` can't contain join column `barcode` which is missing from LHS
+"

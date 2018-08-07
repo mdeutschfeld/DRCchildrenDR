@@ -1,0 +1,21 @@
+{
+    "collab_server" : "",
+    "contents" : "\npfonly <- MoST_Congo[c(\"barcode\", \"pfonly\")]\n\npos <- table(pfonly$pfonly)\npos\n2435/(2435+6403)\n\npcr <- subset(MoST_Congo, !is.na(MoST_Congo$pfonly))\nsummary(MoST_Congo$v012)\n\nadult_dat <- read_dta",
+    "created" : 1531404398035.000,
+    "dirty" : true,
+    "encoding" : "",
+    "folds" : "",
+    "hash" : "3789460345",
+    "id" : "FC130A2A",
+    "lastKnownWriteTime" : 140734799789824,
+    "last_content_update" : 1531406643400,
+    "path" : null,
+    "project_path" : null,
+    "properties" : {
+        "tempName" : "Untitled2"
+    },
+    "relative_order" : 4,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

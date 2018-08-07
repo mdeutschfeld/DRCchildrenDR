@@ -1,0 +1,29 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1531683387474.000,
+    "dirty" : false,
+    "encoding" : "",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "79A06B86",
+    "lastKnownWriteTime" : 0,
+    "last_content_update" : 1531683387474,
+    "path" : null,
+    "project_path" : null,
+    "properties" : {
+        "cacheKey" : "54D18493",
+        "caption" : "combo",
+        "contentUrl" : "grid_resource/gridviewer.html?env=&obj=combo&cache_key=54D18493",
+        "displayedObservations" : 365,
+        "environment" : "",
+        "object" : "combo",
+        "preview" : 0,
+        "totalObservations" : 365,
+        "variables" : 39
+    },
+    "relative_order" : 4,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_dataframe"
+}

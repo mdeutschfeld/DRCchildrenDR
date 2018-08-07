@@ -1,0 +1,10 @@
+"0","knitr::opts_chunk$set(echo = TRUE)"
+"0","# data wrangling"
+"0","library(tidyverse)"
+"0","library(reshape2)"
+"0","library(foreign)"
+"0","library(sas7bdat)"
+"0","library(gdata)"
+"0","library(vioplot)"
+"2","Error in library(vioplot) : there is no package called ‘vioplot’
+"

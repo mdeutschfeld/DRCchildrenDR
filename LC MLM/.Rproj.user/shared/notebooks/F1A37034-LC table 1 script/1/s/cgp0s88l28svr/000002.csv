@@ -1,0 +1,5 @@
+"0","# loading in required packages
+#install.packages(""tableone"")
+library(tableone)
+"
+"2","package ‘tableone’ was built under R version 3.4.4"

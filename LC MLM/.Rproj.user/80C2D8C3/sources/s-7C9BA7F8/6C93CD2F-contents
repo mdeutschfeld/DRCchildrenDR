@@ -1,0 +1,778 @@
+---
+title: "Adult DHS 2007 Database Construction & PCR Merge"
+author: "Nick Brazeau"
+date: "Aug 6, 2017"
+output: html_document
+fig.cap: TRUE
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# data wrangling
+library(tidyverse)
+library(reshape2)
+library(foreign)
+library(sas7bdat)
+library(gdata)
+#install.packages("vioplot")
+library(vioplot)
+library(stringdist)
+library(zoo)
+library(data.table)
+
+
+#Spatial Analysis
+library(ggmap)
+library(maps)
+library(rgdal)
+library(raster)
+library(maptools)
+
+
+```
+
+# DHS 2007 Database Construction & Pooling Strategy
+On Aug 4, 2017  Nick B decided to go back to the DHS source, re-download the data and construct the 2007 adult database nearly identical to how he constructed the 2013 adult database for better comparisons. **This is the script detailing the 2007 adult DHS metadata and PCR/molecular work merge and DATABASE CONSTRUCTION _that the pools will be based off of_.**
+Nick downloaded the 2007 DHS metadata files for the HIV recode the household recode on July 7, 2017. Will merge this files below. 
+
+
+## DHS 2007 Household Database
+```{r DHS 2007 database, include=T, echo=F, warnings=F}
+
+################################################################################################################################################
+################################################################################################################################################
+################################################################################################################################################
+##############################################            METADATE MERGE                          ##############################################            
+################################################################################################################################################
+################################################################################################################################################
+################################################################################################################################################
+# Decided on July 7, 2017 to do a merge with the DHS metadata that I pulled down on July 7 from their website
+
+########################################################################
+##################         HOUSEHOLD DATASETS         ##################
+########################################################################
+
+CDPR50L <- read.sas7bdat("/Volumes/share/1. Data/1. Raw Data/DRC DHS 2007/CD_2007_DHS_07072017_114_108679/cdpr50sd/CDPR50FL.SAS7BDAT", debug=FALSE)
+paste("There are", nrow(CDPR50L), "observations in the DHS 2007 Household Dataset")
+
+colnames(CDPR50L)[colnames(CDPR50L) %in% c("HV001", "HV002")] <- c("cluster", "household")
+
+
+
+#### MISSING AND OVERLAP BARCODE EVAL
+## Fix these codes that aren't in MAP file
+CDPR50L$HA62[CDPR50L$HA62 == "99990"] <- ""
+CDPR50L$HA62[CDPR50L$HA62 == "99991"] <- ""
+CDPR50L$HA62[CDPR50L$HA62 == "99992"] <- ""
+CDPR50L$HA62[CDPR50L$HA62 == "99993"] <- ""
+CDPR50L$HA62[CDPR50L$HA62 == "99994"] <- ""
+CDPR50L$HA62[CDPR50L$HA62 == "99995"] <- ""
+CDPR50L$HA62[CDPR50L$HA62 == "99996"] <- ""
+CDPR50L$HA62[CDPR50L$HA62 == "99997"] <- ""
+CDPR50L$HA62[CDPR50L$HA62 == "99998"] <- ""
+CDPR50L$HA62[CDPR50L$HA62 == "99999"] <- ""
+CDPR50L$HA62[CDPR50L$HA62 == "?"] <- ""
+CDPR50L$HA62 <- factor(CDPR50L$HA62)
+
+CDPR50L$HB62[CDPR50L$HB62 == "99990"] <- ""
+CDPR50L$HB62[CDPR50L$HB62 == "99991"] <- ""
+CDPR50L$HB62[CDPR50L$HB62 == "99992"] <- ""
+CDPR50L$HB62[CDPR50L$HB62 == "99993"] <- ""
+CDPR50L$HB62[CDPR50L$HB62 == "99994"] <- ""
+CDPR50L$HB62[CDPR50L$HB62 == "99995"] <- ""
+CDPR50L$HB62[CDPR50L$HB62 == "99996"] <- ""
+CDPR50L$HB62[CDPR50L$HB62 == "99997"] <- ""
+CDPR50L$HB62[CDPR50L$HB62 == "99998"] <- ""
+CDPR50L$HB62[CDPR50L$HB62 == "99999"] <- ""
+CDPR50L$HB62[CDPR50L$HB62 == "?"] <- ""
+CDPR50L$HB62 <- factor(CDPR50L$HB62)
+
+paste("The HIV recoded barcodes are under the variables HA62 (males) and HB62 (females)",
+      "Let's make sure that there are no overlapping barcodes for individual observations (by row) for HA62 & HB62")
+paste("There are", length(which(CDPR50L$HA62 != "")), "barcodes for men, suggesting that they did consent for HIV testing and have a DBS")
+paste("There are", length(which(CDPR50L$HB62 != "")), "barcodes for women, suggesting that they did consent for HIV testing and have a DBS")
+paste("Overall based on the household dataset, we expect to have", (length(which(CDPR50L$HA62 != "")) + length(which(CDPR50L$HB62 != ""))), "DBS")
+
+malebar <- CDPR50L$HA62[CDPR50L$HA62 != ""]
+femalebar <- CDPR50L$HB62[CDPR50L$HB62 != ""]
+intrsct <- dplyr::intersect(malebar, femalebar)
+paste("How many barcodes for both the male (HA62) and female (HB62) observations?:", length(intrsct))
+paste("Should be 0; if not, stop and eval.")
+
+paste("OK. So no overlapping individuals with a male and female barcode -- good. Am now going to make a new variable, BARCODE, and concat the HA62 and HB62 columns in the Household Dataset")
+
+CDPR50L$barcode <- ""
+CDPR50L$HA62 <- as.character(CDPR50L$HA62)
+CDPR50L$barcode[which(CDPR50L$HA62 != "")] <- CDPR50L$HA62[which(CDPR50L$HA62 != "")]
+
+CDPR50L$HB62 <- as.character(CDPR50L$HB62)
+CDPR50L$barcode[which(CDPR50L$HB62 != "")] <- CDPR50L$HB62[which(CDPR50L$HB62 != "")]
+
+
+
+
+paste("Confirm that concatenation worked based on length", "From above, we expect", (length(which(CDPR50L$HA62 != "")) + length(which(CDPR50L$HB62 != ""))), "barcodes.")
+paste("In our new barcode variable we have", (length(which(CDPR50L$barcode != ""))), "observations,", "which matches our expectation:",
+      (length(which(CDPR50L$barcode != ""))) == (length(which(CDPR50L$HA62 != "")) + length(which(CDPR50L$HB62 != ""))))
+
+paste("Are there any duplicated barcodes from the household dataset concatenated HA62 and HB62 new barcode variable?:", TRUE %in% duplicated(CDPR50L$barcode[CDPR50L$barcode != ""]))
+#levels(factor(CDPR50L$barcode[which(CDPR50L$barcode != "")]))
+paste("There are", length(levels(factor(CDPR50L$barcode[which(CDPR50L$barcode != "")]))), "unique values,", 
+      "which matches our expectation:", length(levels(factor(CDPR50L$barcode[which(CDPR50L$barcode != "")]))) == (length(which(CDPR50L$HA62 != "")) + length(which(CDPR50L$HB62 != ""))))
+paste("Confirm no duplicated values by different approach -- Are there duplicated entries:", (TRUE %in% duplicated(CDPR50L$barcode[which(CDPR50L$barcode != "")])))
+
+paste("Good to go. Subsetting household dataset for HIV only pts")
+CDPR50L <- CDPR50L[which(CDPR50L$barcode != ""), ]
+CDPR50L$barcode <- toupper(CDPR50L$barcode)
+
+```
+
+## DHS 2007 HIV Database
+```{r HIV datasets, echo=F, include=T, warning=F}
+########################################################################
+##################              HIV DATASETS          ##################
+########################################################################
+
+CDAR50FL <- read.sas7bdat("/Volumes/share/1. Data/1. Raw Data/DRC DHS 2007/CD_2007_DHS_07072017_114_108679/cdar50sd/CDAR50FL.SAS7BDAT", debug=FALSE)
+paste("There are", nrow(CDAR50FL), "observations in the 2007 DHS HIV Dataset")
+paste("THIS IS PROBLEMATIC as there are", nrow(CDPR50L), "expected HIV tests for DBS but only", nrow(CDAR50FL), "results in the HIV dataset for the 2007 DHS.")
+paste("WHY ARE THESE DISCORDANT?? -- going to have to ignore the 26 missing values but could need to circle back.")
+paste("The HIV dataset contains a Cluster, Household, Line, Barcode, Lab Number, HIV blood test result, and sampling weight.", "I am going to keep all variables except Line number and lab number.")
+CDAR50FL <- CDAR50FL[!colnames(CDAR50FL) %in% c("HIV02", "HIVLINE")]
+colnames(CDAR50FL) <- c("cluster", "household", "barcode", "HIV03", "HIV05")
+CDAR50FL$barcode <- toupper(CDAR50FL$barcode)
+
+paste("Am now going to merge the household member survey with the HIV recoded survery.",
+      "MERGING by cluster number, household number, and barcode")
+#paste("To start the have the same number of rows:", nrow(CDAR50FL) == nrow(CDPR50L))
+ ## GOING TO IGNORE THIS FOR NOW BUT WILL RETURN TO IT as there appears that CDPR50L has samples/people that maybe didn't consent for the HIV Recode?
+
+########################################################################
+##################            METADATE MERGE          ##################
+########################################################################
+
+firstmerge <- inner_join(x=CDAR50FL, y=CDPR50L, by=c("cluster", "household", "barcode"))
+
+paste("The merge was totally successful as observations were not lost:", nrow(firstmerge) == nrow(CDAR50FL))
+paste("Are there any duplicate observations:", (TRUE %in% duplicated(firstmerge)))
+paste("Will need to look into why this the DHS lost these 26 samples/blood barcode ids...")
+
+```
+
+
+
+
+## 2007 DHS Molecular Work -- MoST-Congo2007
+On July 13, 2016, Jon Juliano provided Nick B with the following document from Steve Taylor that contained the molecular results for the 2007 DHS: `MoST-Congo2007_for_Jon.xlsx`. This is the file that we are going to consider as "truth" for the molecular work. However, note that it has several typos and duplicates and other issues that I am going to try and clean up below. 
+```{r MoST-Congo2007, include=T, warning=F, echo=F}
+DHS07_MoST <- read.xls(xls="/Volumes/share/1. Data/2. Data Set Processing/2007 Adult Database Construction/MoST-Congo2007_for_Jon.xls", sheet = 1)
+# DHS07_MoST is the dataset that Jon gave you from Steve Taylor, this has the plate map
+colnames(DHS07_MoST)[1] <- c("barcode")
+DHS07_MoST$barcode <- toupper(DHS07_MoST$barcode) # take care of any case insensitives 
+DHS07_MoST$barcode <- sub(pattern = " ", "", DHS07_MoST$barcode) # get rid of lingering spaces
+
+
+paste("Are there duplicated barcodes in the 2007 Most-Congo2007 database:", TRUE %in% duplicated(DHS07_MoST$barcode))
+paste("Am going to remove these duplicated barcodes as we won't be able to parse out records.")
+dupstoremove <- DHS07_MoST$barcode[duplicated(DHS07_MoST$barcode)]
+DHS07_MoST <- DHS07_MoST[!(DHS07_MoST$barcode %in% dupstoremove), ]
+
+
+
+########################################################################
+##################    PCR Discordance and Typos       ##################
+########################################################################
+ 
+TypostoFix <- data.frame()
+paste("These observations have a string that is different from 5 characters (i.e. likely a typo):", DHS07_MoST$barcode[nchar(DHS07_MoST$barcode, type = "chars") != 5])
+# Bind this to typos to fix
+TypostoFix <-  rbind(TypostoFix, DHS07_MoST[(nchar(DHS07_MoST$barcode, type = "chars") != 5),])
+DHS07_MoST <- DHS07_MoST[!(DHS07_MoST$barcode %in% TypostoFix$barcode), ]
+
+########################################################################
+##################    Moving onto Prelim Merge       ##################
+########################################################################
+paste("There are", nrow(DHS07_MoST), "molecular results that are going to move on to the preliminary DHS metadata merge.")
+
+
+```
+
+## 2007 DHS Prelim Merge between Molecular Data and DHS Metadata
+```{r prelim merge, include=T, echo=F, warning=F}
+prelim <- inner_join(x=DHS07_MoST, y = firstmerge, by=c("barcode"))
+paste("There were", nrow(DHS07_MoST) - nrow(prelim), "samples that had molecular data that did not have corresponding DHS metadata. Going to dig into these discordance to see if we can recover any of the",  nrow(DHS07_MoST) - nrow(prelim), "samples.")
+
+PCRonly <- anti_join(x=DHS07_MoST, y = firstmerge, by=c("barcode"))
+MTDTonly <- anti_join(x = firstmerge, y=DHS07_MoST, by=c("barcode"))
+
+########################################################################
+##################             1-off Typos            ##################
+########################################################################
+
+paste("Let's see if there are big differences in the barcodes between those in the PCR ONLY data and those in the METADATA ONLY data. GOING to allow for one character",
+      "differeces using the Hamming's Distance to see if there are common typos between the two dataframes.")
+stringsim <- as.data.frame(stringdistmatrix(PCRonly$barcode, MTDTonly$barcode, method=c("hamming"), useNames = T))
+string_1off <- stringsim # make this one off and drop everything that isn't a 1 to NA -- want it this way so we keep rownames and colnames
+#str(string_1off)
+string_1off[string_1off == 2] <- NA
+string_1off[string_1off == 3] <- NA
+string_1off[string_1off == 4] <- NA
+string_1off[string_1off == 5] <- NA
+string_1off[string_1off == 6] <- NA
+string_1off[string_1off == Inf] <- NA
+
+
+paste("There are", length(which(!is.na(string_1off))), "that are 1-offs between the PCR only and metadata only Barcodes -- need to be evaluated for typos.")
+
+string_1off_writeout <- string_1off[rowSums(is.na(string_1off)) < ncol(string_1off), colSums(is.na(string_1off))<nrow(string_1off)] # to delete columns with all NAs
+
+
+
+########################################################################
+##################     Correction of OneOffs          ##################
+########################################################################
+
+oneoff <- string_1off_writeout
+oneoff$id <- rownames(string_1off_writeout)  
+oneoff <- melt(oneoff, na.rm=T)  # melt to long format for side by side
+oneoff <- oneoff[,c(1:2)]
+colnames(oneoff) <- c("barcode", "NFBbarcode")
+
+paste("We now have a proposal of the barcodes that were missing in both the PCR and DHS data and were off by a single character (using Hamming's Distance).")
+levels(factor(oneoff$barcode))
+paste("Are there duplicated values in the old one off barcode names:", TRUE %in% duplicated(oneoff$barcode))
+paste("Are there duplicated values in the NEW one off barcode names:", TRUE %in% duplicated(oneoff$NFBbarcode))
+
+
+paste("Now implement the new barcodes in the adult PfLDH dataframe.")
+
+newmerge <- left_join(x=DHS07_MoST, y=oneoff, by=c("barcode"))
+paste("How many barcodes did we replace:", length(which(!is.na(newmerge$NFBbarcode))), "and does it match our expectation:", length(which(!is.na(newmerge$NFBbarcode))) == 25)
+newmerge$NFBbarcode <- as.character(newmerge$NFBbarcode) # need to convert back to character from factor so that the NA and other factors can be understood
+newmerge$NFBbarcode[is.na(newmerge$NFBbarcode)] <- newmerge$barcode[is.na(newmerge$NFBbarcode)]
+
+paste("Do the NFBbarcode and the barcode match except for the 25 replacements:", sum(!(newmerge$barcode == newmerge$NFBbarcode)) == 25)
+paste("Now replacing the NFBbarcode with the barcode column and dropping the NFBbarcode column")
+newmerge$barcode <- newmerge$NFBbarcode
+newmerge <- newmerge[,!(colnames(newmerge) %in% c("NFBbarcode"))]
+
+```
+
+## Final Metadata Merge 
+```{r final merge, include=T, warning=F, echo=F}
+paste("NOW PERFORMING FINAL MERGE before geography accounting")
+finaladultdatset2007 <- inner_join(x=newmerge, y=firstmerge, by=c("barcode"))
+
+
+
+```
+
+## 2007 DHS Metadata taking into account Geography
+In the DHS 2007 study, 7 clusters did not have GPS coordinates/geography data. Am going to exclude those clusters. Am going to read in Mark's liftover script to identify which clusters that lacked information...
+```{r geo subset, include=T, warning=F, echo=F}
+
+########################################################################
+###########    Adding in GPS Coordinates by Clusters          ########## 
+########################################################################
+DRC07shp <- shapefile("/Volumes/share/1. Data/1. Raw Data/DRC DHS 2007/CD_2007_DHS_07072017_114_108679/cdge52fl/CDGE52FL.shp")
+
+DRC07shpdf <- data.frame(DRC07shp$DHSCLUST, DRC07shp$LATNUM, DRC07shp$LONGNUM, stringsAsFactors = F)
+paste("Clusters with Lat and Long of 0,0 were not able to be identified and should have coordinates set to NA:")
+missingclusters <- DRC07shpdf$DRC07shp.DHSCLUST[DRC07shpdf$DRC07shp.LATNUM == 0 & DRC07shpdf$DRC07shp.LONGNUM == 0]
+missingclusters
+DRC07shpdf$DRC07shp.LATNUM[DRC07shpdf$DRC07shp.LATNUM == 0 & DRC07shpdf$DRC07shp.LONGNUM == 0 ] <- NA
+DRC07shpdf$DRC07shp.LONGNUM[is.na(DRC07shpdf$DRC07shp.LATNUM) & DRC07shpdf$DRC07shp.LONGNUM == 0 ] <- NA
+
+paste("Confirm set columns to NA:", !FALSE %in% (DRC07shpdf$DRC07shp.DHSCLUST[is.na(DRC07shpdf$DRC07shp.LATNUM)] %in% missingclusters))
+colnames(DRC07shpdf)[1] <- c("cluster")
+finaladultdatset2007 <- left_join(finaladultdatset2007, DRC07shpdf, by="cluster")
+
+
+########################################################################
+##################     New Province Assignment          ################
+########################################################################
+
+paste("PROVIDING NEW PROVINCE ASSIGNMENTS to DHS 2007 CLUSTERs. This overlay script was provided by Mark Janko.")
+provassgn <- read.csv(file = "/Volumes/share/1. Data/2. Data Set Processing/2007 Adult Database Construction/2007DHS_NewProvincesOverlay.csv", header=T, sep=",")
+colnames(provassgn)[1] <-c("cluster")
+finaladultdatset2007 <- left_join(finaladultdatset2007, provassgn, by="cluster")
+paste("The following cluster have missing GPS coordinate data and will not be assigend a newprovince:", "25, 37, 69, 93, 180, 231, 243")
+paste("Confirm that the missing clusters conform with our mising shnprovin assignments -- ie merge succesful:", levels(factor(finaladultdatset2007[is.na(finaladultdatset2007$shnprovin), c("cluster")])))
+
+########################################################################
+##################      Looking at Final Data            ###############
+########################################################################
+
+paste("Looking at the PCR values for the final adult dataset")
+paste("There are", sum(finaladultdatset2007$Falciparum_final, na.rm=T), paste0("(", round(sum(finaladultdatset2007$Falciparum_final, na.rm=T)/length(finaladultdatset2007$Falciparum_final)*100, digits=2), "%", ")"), "P. falicparum infections by pfLDH (%) in the adult data")
+
+paste("This is somewhat consistent with Steve Taylor's 2011 Manuscript estimate of 2,682 infections (32.1%) among 8,838 respondents")
+summary(finaladultdatset2007[,c(1:63)])
+
+```
+
+
+```{r write out}
+###############################################################################
+##################             Writing File OUT             ##################
+##############################################################################
+finaladultdatset2007_molecular <- finaladultdatset2007[,c(1:63)]
+write.csv(x=finaladultdatset2007_molecular, file="/Volumes/share/1. Data/2. Data Set Processing/2007 Adult Database Construction/DHS2007_adult_MoST_V1.csv", quote=F, row.names=F, na = "")
+
+
+write.csv(x=finaladultdatset2007, file="/Volumes/share/1. Data/2. Data Set Processing/2007 Adult Database Construction/DHS2007_alladultsMoSTDHSmetadata_V1.csv", quote=F, row.names=F, na = "")
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- ######################################################################## -->
+<!-- ##################      Merge with POOLED Samples         ############## -->
+<!-- ######################################################################## -->
+<!-- # going to just merge with the PooledVolumes_Final Samples -->
+<!-- colnames(PooledVolumes_Final)[1] <- c("barcode") -->
+<!-- PooledVolumes_Final_mtdt <- inner_join(x=PooledVolumes_Final, y=firstmerge, by=c("barcode")) -->
+<!-- paste("Confirming no drops in barcode between DHS metadata and the Pooled Volume Final samples collected:", (FALSE %in% (PooledVolumes_Final_mtdt$barcode %in% PooledVolumes_Final$barcode))) -->
+
+
+<!-- ######################################################################## -->
+<!-- ##################     Write out Table with Metadata         ########## -->
+<!-- ######################################################################## -->
+<!-- write.csv(x=PooledVolumes_Final_mtdt, file="/Volumes/share/2. Projects/1. Current/DRC_CrossSectionalDrugRx_JJJR01/PoolingStrategy2007_JonJ_R01/PooledVolumes_Final_DHSmetadata.csv",  -->
+<!--             row.names = F, col.names = T, na = "") -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- # DHS 2007 Pooling -->
+<!-- ```{r Probe into data to get a sense, include=F, warnings=F} -->
+
+<!-- ##################################################### -->
+<!-- #################  Read in Data    ################## -->
+<!-- ##################################################### -->
+
+<!-- DHS07_MoST <- read.xls(xls="/Volumes/share/1. Data/2. Data Set Processing/2007 Adult Database Construction/PCR_Results/MoST-Congo2007_for_Jon.xls", sheet = 1) -->
+<!-- # DHS07_MoST is the dataset that Jon gave you from Steve Taylor, this has the plate map -->
+
+<!-- # Corrected the following Sample names in DHS07_MoST --= B8K2V- to B8K2V; N4B8B' to N4B8B; r9t9e to R9T9E -->
+
+
+<!-- MJ_DHS07 <- read.csv(file="/Volumes/share/1. Data/2. Data Set Processing/2007 Adult Database Construction/PCR_Results/DHS_2007_fromMarkJanko_MalariaResults012510_DHS.csv", sep=",", header=T) -->
+<!-- # MJ_DHS07 is the dataset that Mark Janko sent you that he works from; it is based off of the paper Messina et al. 2011; Malaria Journal (https://malariajournal.biomedcentral.com/articles/10.1186/1475-2875-10-161) -->
+
+<!-- # There are approximately 200 samples missing from this dataset and 7 clusters that are missing from what the paper states. Mark believes -->
+<!-- # this is due to the fact that those clusters did not have GPS point (7 cluster ~ 200 people). We have accepted this and moved forward with the 8637 Sample Names -->
+<!-- # that Mark has provided for the DHS 2007 data  -->
+
+<!-- #################################################################################################################### -->
+<!-- ################# Section 1, Compare the Datasets with Plate Maps and the DHS adjusted Dataset    ################## -->
+<!-- #################################################################################################################### -->
+
+<!-- str(DHS07_MoST) -->
+<!-- length(DHS07_MoST$Sample) # Looks like there is 4 errors in sample name -->
+<!-- factor(DHS07_MoST$Sample) # the factor levels (9238) are less than the sample list -->
+<!-- levels(DHS07_MoST$Sample) # levels include #REF! and 0 --= clearly errors -->
+
+<!-- DHS07_MoSTSample <- DHS07_MoST$Sample -->
+<!-- DHS07_MoSTSample <- DHS07_MoSTSample[DHS07_MoSTSample != 0] # remove these error rows -->
+<!-- DHS07_MoSTSample <- DHS07_MoSTSample[DHS07_MoSTSample != "#REF!"] -->
+<!-- DHS07_MoSTSample <- as.data.frame(DHS07_MoSTSample) -->
+<!-- colnames(DHS07_MoSTSample) <- c("Sample") -->
+<!-- DHS07_MoSTSample$DHS07_MoSTSample_COUNT <- 1 # initialize count for compare -->
+
+<!-- str(MJ_DHS07) -->
+<!-- length(MJ_DHS07$Sample) # this looks cleaned for sample name better than above -->
+<!-- factor(MJ_DHS07$Sample) # the number of factor levels (8631) is less than the sample names. Repeat sample name? -->
+<!-- levels(MJ_DHS07$Sample) -->
+<!-- MJ_DHS07deduporiginal <- unique(MJ_DHS07) -->
+<!-- MJ_DHS07Sample <- MJ_DHS07$Sample -->
+<!-- MJ_DHS07Sample <-  as.data.frame(MJ_DHS07Sample) -->
+<!-- colnames(MJ_DHS07Sample) <- c("Sample") -->
+<!-- MJ_DHS07Sample$MJ_DHS07Sample_COUNT <- 2 # initialize count to compare  -->
+<!-- deduped.data <- unique( MJ_DHS07Sample[ , 1] ) -->
+
+<!-- CmbndDHS07 <- full_join(x=DHS07_MoSTSample, y=MJ_DHS07Sample, by="Sample") # combine by sample name -->
+
+<!-- CmbndDHS07[is.na(CmbndDHS07)] <- 0 # replace Na with 0 so we can add  -->
+
+<!-- CmbndDHS07$DHS07_COMPARISONS <- CmbndDHS07$DHS07_MoSTSample_COUNT + CmbndDHS07$MJ_DHS07Sample_COUNT -->
+
+<!-- # Samples only in the MoST Dataset -->
+<!-- MoST_only <- subset(CmbndDHS07, CmbndDHS07$DHS07_COMPARISONS == 1) # R is case sensitive and there are lower cases in here!!!!!! -->
+<!-- # Also have a BLANK sample name in here.... -->
+
+<!-- Both_cases <- subset(CmbndDHS07, CmbndDHS07$DHS07_COMPARISONS == 3) -->
+
+<!-- rm(list=ls()) -->
+
+<!-- ``` -->
+
+<!-- ## DHS 2007 Metadata -->
+<!-- ```{r} -->
+<!-- #################################################################################################################### -->
+<!-- ################# Section 2, New Province Overlay on the Old Provinces 2007 DHS Data   ############################# -->
+<!-- #################################################################################################################### -->
+<!-- provassgn <- read.csv(file = "/Volumes/share/1. Data/2. Data Set Processing/2007 Adult Database Construction/PCR_Results/2007DHS_NewProvincesOverlay.csv", header=T, sep=",") -->
+<!-- MJ_DHS07 <- read.csv(file="/Volumes/share/1. Data/2. Data Set Processing/2007 Adult Database Construction/PCR_Results/DHS_2007_fromMarkJanko_MalariaResults012510_DHS.csv", sep=",", header=T) -->
+<!-- MJ_DHS07 <- left_join(MJ_DHS07, provassgn, by="DHSCLUST") -->
+<!-- factor(MJ_DHS07$shnprovin) # confirm variable created correctly -->
+<!-- paste("We have", nrow(MJ_DHS07), "samples with DHS metadata that Mark Janko has curated from the 2007 DHS.", "As compared to Messina et al. 2011; [Malaria Journal](https://malariajournal.biomedcentral.com/articles/10.1186/1475-2875-10-161) -- There are approximately 200 samples missing from this dataset and 7 clusters that are missing from what the paper states. Mark believes this is due to the fact that those clusters did not have GPS point (7 cluster ~ 200 people). We have accepted this and moved forward with the 8637 Sample Names that Mark has provided for the DHS 2007 data ") -->
+
+
+<!-- paste("Need to convert old provinces to new provinces with Mark Janko's help. Note that these are the samples that have DHS METADATA available by new province:") -->
+<!-- table(MJ_DHS07$shnprovin, useNA = c("always"))  # confirm variable created correctly -->
+
+<!-- # All cluster were successfully tranformed in the MJ_DHS07  -->
+
+<!-- paste("Are there any duplicated barcodes in the 2007 DHS metadata:", TRUE %in% duplicated(MJ_DHS07$Sample)) -->
+<!-- paste("Duplicated entries need to be removed:", MJ_DHS07$Sample[duplicated(MJ_DHS07$Sample)]) -->
+
+<!-- dupstoremove <- factor(MJ_DHS07$Sample[duplicated(MJ_DHS07$Sample)]) -->
+<!-- MJ_DHS07 <- MJ_DHS07[!(MJ_DHS07$Sample %in% dupstoremove), ] -->
+
+
+<!-- ``` -->
+
+
+<!-- ## DHS 2007 Molecular Work  -->
+<!-- Look at the molecular work breakdown.  -->
+<!-- ```{r} -->
+<!-- ############################################################################ -->
+<!-- ####### Making cleaned combined dataset that we will use below ######### -->
+<!-- ############################################################################ -->
+<!-- paste("Now reading in DHS07 molecular results.") -->
+<!-- DHS07_MoST <- read.xls(xls="/Volumes/share/1. Data/2. Data Set Processing/2007 Adult Database Construction/PCR_Results/MoST-Congo2007_for_Jon.xls", sheet = 1) -->
+<!-- paste("We have", nrow(DHS07_MoST), "samples with molecular results.", -->
+<!--       "Why are there", nrow(DHS07_MoST) - nrow(MJ_DHS07), "more rows with molecular data than DHS metadata? Not accounted for above with ~200 missing samples without GPS data...?") -->
+
+<!-- paste("Are there any duplicated barcodes in the 2007 DHS MOLECULAR DATA:", TRUE %in% duplicated(DHS07_MoST$Sample)) -->
+<!-- paste("Duplicated entries need to be removed:", DHS07_MoST$Sample[duplicated(DHS07_MoST$Sample)]) -->
+
+<!-- dupstoremove <- factor(DHS07_MoST$Sample[duplicated(DHS07_MoST$Sample)]) -->
+<!-- DHS07_MoST <- DHS07_MoST[!(DHS07_MoST$Sample %in% dupstoremove), ] -->
+
+
+
+
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- CmbndDHS07_NewProv <-inner_join(x=DHS07_MoST, y=MJ_DHS07, by="Sample") # combine by sample name -->
+<!-- # this inner join create duplicate entries (must be due to duplicate sample names....delete them) -->
+<!-- CmbndDHS07_NewProv <- unique(CmbndDHS07_NewProv) -->
+
+
+<!-- # trim down dataset -->
+<!-- keep <- c("Sample", "Sample.plate", "Row", "Column", "Falcip.Ct", "shnprovin") -->
+<!-- CmbndDHS07_NewProv_trimmed <- CmbndDHS07_NewProv[keep] -->
+<!-- PfCmbndDHS07_NewProv <- subset(CmbndDHS07_NewProv_trimmed, CmbndDHS07_NewProv_trimmed$Falcip.Ct > 0) -->
+<!-- str(PfCmbndDHS07_NewProv$Falcip.Ct) -->
+
+<!-- #did we successful remove duplicate sample names bc they didn't have parasitemia? NOPE -->
+<!-- Smplnm <- PfCmbndDHS07_NewProv$Sample -->
+<!-- Smplnm <- as.data.frame(as.matrix(duplicated(Smplnm))) -->
+<!-- # entries 1464 and 2430 have duplicated plate map locations (i.e. they were likely coded wrong sample name wise. Asked Jon if we should delete or just pull both duplicates) -->
+
+<!-- PfCmbndDHS07_NewProv[c(1464,2430),] -->
+
+<!-- # Assuming we want don't want to delete them -->
+<!-- #PfCmbndDHS07_NewProv <- subset(PfCmbndDHS07_NewProv, PfCmbndDHS07_NewProv$Sample != "L2Z2P" & PfCmbndDHS07_NewProv$Sample != "Q4V2S") -->
+<!-- ``` -->
+
+<!-- ```{r 2007 Pf by Province Plot} -->
+<!-- #################################################################################################################### -->
+<!-- ################# Section 3, Infections by New Province Plot ################################################## -->
+<!-- #################################################################################################################### -->
+
+
+
+
+<!-- aggregate(PfCmbndDHS07_NewProv$Falcip.Ct, list(factor(PfCmbndDHS07_NewProv$shnprovin)), summary) -->
+<!-- aggregate(PfCmbndDHS07_NewProv$Falcip.Ct, list(factor(PfCmbndDHS07_NewProv$shnprovin)), sd) -->
+<!-- aggregate(PfCmbndDHS07_NewProv$Falcip.Ct, list(factor(PfCmbndDHS07_NewProv$shnprovin)), length) -->
+
+<!-- vioplot( -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==1], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==2], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==3], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==4], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==5], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==6], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==7], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==8], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==9], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==10], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==11], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==12], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==13], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==14], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==15], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==16], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==17], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==18], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==19], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==20], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==21], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==22], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==23], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==24], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==25], -->
+<!--   PfCmbndDHS07_NewProv$Falcip.Ct[PfCmbndDHS07_NewProv$shnprovin==26], -->
+
+<!--   #names=c() # ask mark for names -->
+<!--   horizontal = T, col="#deebf7" -->
+<!-- ) -->
+<!-- title("Ct Distribution for Pf in DRC DHS 2007 by New Provinces") -->
+
+<!-- ``` -->
+
+<!-- ```{r Normalize CT values} -->
+
+<!-- #################################################################################################################### -->
+<!-- ################# Section 4, Pf+ Ct value Normalization Sample Volume ################################################## -->
+<!-- #################################################################################################################### -->
+<!-- # Want to normalize the number of parasites that go into a given pool -->
+<!-- # Every 1 difference in Ct value is a 2^difference  -->
+<!-- # Have elected to take the first and third quartile of every province -->
+<!-- # The lowest Ct value (most parasitemia) will be 1 uL -->
+
+
+<!-- Pool.uL.Clctr <- function(Provnum){ -->
+<!--   Provincesubset <- subset(PfCmbndDHS07_NewProv, PfCmbndDHS07_NewProv$shnprovin==Provnum) # subset by the province -->
+<!--   Q1 <- as.numeric(quantile(Provincesubset$Falcip.Ct, c(0.25)))  -->
+<!--   Q3 <- as.numeric(quantile(Provincesubset$Falcip.Ct, c(.75)))   -->
+<!--   Provincesubset <- subset(Provincesubset, Provincesubset$Falcip.Ct >= Q1 & Provincesubset$Falcip.Ct <= Q3) # subset by 1 and 3 quartile -->
+<!--   Provincesubset$Volume <- 0 # initiliaze column -->
+<!--   for(i in 1:length(Provincesubset$Falcip.Ct)){ -->
+<!--     n <- Provincesubset$Falcip.Ct[i] - Q1 -->
+<!--     Provincesubset$Volume[i] <- 2^n -->
+<!--   } -->
+<!--   return(Provincesubset) -->
+<!-- } -->
+
+<!-- # learn how to wrap this in a list really.... -->
+<!-- Prov1 <- Pool.uL.Clctr(1) -->
+<!-- Prov2 <- Pool.uL.Clctr(2) -->
+<!-- Prov3 <- Pool.uL.Clctr(3) -->
+<!-- Prov4 <- Pool.uL.Clctr(4) -->
+<!-- Prov5 <- Pool.uL.Clctr(5) -->
+<!-- Prov6 <- Pool.uL.Clctr(6) -->
+<!-- Prov7 <- Pool.uL.Clctr(7) -->
+<!-- Prov8 <- Pool.uL.Clctr(8) -->
+<!-- Prov9 <- Pool.uL.Clctr(9) -->
+<!-- Prov10 <- Pool.uL.Clctr(10) -->
+<!-- Prov11 <- Pool.uL.Clctr(11) -->
+<!-- Prov12 <- Pool.uL.Clctr(12) -->
+<!-- Prov13 <- Pool.uL.Clctr(13) -->
+<!-- Prov14 <- Pool.uL.Clctr(14) -->
+<!-- Prov15 <- Pool.uL.Clctr(15) -->
+<!-- Prov16 <- Pool.uL.Clctr(16) -->
+<!-- Prov17 <- Pool.uL.Clctr(17) -->
+<!-- Prov18 <- Pool.uL.Clctr(18) -->
+<!-- Prov19 <- Pool.uL.Clctr(19) -->
+<!-- Prov20 <- Pool.uL.Clctr(20) -->
+<!-- Prov21 <- Pool.uL.Clctr(21) -->
+<!-- Prov22 <- Pool.uL.Clctr(22) -->
+<!-- Prov23 <- Pool.uL.Clctr(23) -->
+<!-- Prov24 <- Pool.uL.Clctr(24) -->
+<!-- Prov25 <- Pool.uL.Clctr(25) -->
+<!-- Prov26 <- Pool.uL.Clctr(26) -->
+
+<!-- # learn how to wrap this in a list really.... -->
+
+<!-- PooledVolumes_Final <- rbind( -->
+<!--   Prov1, -->
+<!--   Prov2, -->
+<!--   Prov3, -->
+<!--   Prov4, -->
+<!--   Prov5, -->
+<!--   Prov6, -->
+<!--   Prov7, -->
+<!--   Prov8, -->
+<!--   Prov9, -->
+<!--   Prov10, -->
+<!--   Prov11, -->
+<!--   Prov12, -->
+<!--   Prov13, -->
+<!--   Prov14, -->
+<!--   Prov15, -->
+<!--   Prov16, -->
+<!--   Prov17, -->
+<!--   Prov18, -->
+<!--   Prov19, -->
+<!--   Prov20, -->
+<!--   Prov21, -->
+<!--   Prov22, -->
+<!--   Prov23, -->
+<!--   Prov24, -->
+<!--   Prov25, -->
+<!--   Prov26 -->
+<!-- ) -->
+
+<!-- write.table(x=PooledVolumes_Final,file = "/Volumes/share/2. Projects/1. Current/DRC_CrossSectionalDrugRx_JJJR01/PoolingStrategy2007_JonJ_R01/PooledVolumes_Final.csv", sep=",") -->
+
+<!-- ``` -->
+
+<!-- ```{r Metadatamerge} -->
+<!-- ################################################################################################################################################ -->
+<!-- ################################################################################################################################################ -->
+<!-- ################################################################################################################################################ -->
+<!-- ##############################################            METADATE MERGE                          ##############################################             -->
+<!-- ################################################################################################################################################ -->
+<!-- ################################################################################################################################################ -->
+<!-- ################################################################################################################################################ -->
+<!-- # Decided on July 7, 2017 to do a merge with the DHS metadata that I pulled down on July 7 from their website -->
+
+
+<!-- ######################################################################## -->
+<!-- ##################         HOUSEHOLD DATASETS         ################## -->
+<!-- ######################################################################## -->
+
+<!-- CDPR50L <- read.sas7bdat("/Volumes/share/1. Data/1. Raw Data/DRC DHS 2007/CD_2007_DHS_07072017_114_108679/cdpr50sd/CDPR50FL.SAS7BDAT", debug=FALSE) -->
+<!-- paste("There are", nrow(CDPR50L), "observations in the DHS 2007 Household Dataset") -->
+
+<!-- colnames(CDPR50L)[colnames(CDPR50L) %in% c("HV001", "HV002")] <- c("cluster", "household") -->
+
+
+
+<!-- #### MISSING AND OVERLAP BARCODE EVAL -->
+<!-- ## Fix these codes that aren't in MAP file -->
+<!-- CDPR50L$HA62[CDPR50L$HA62 == "99990"] <- "" -->
+<!-- CDPR50L$HA62[CDPR50L$HA62 == "99991"] <- "" -->
+<!-- CDPR50L$HA62[CDPR50L$HA62 == "99992"] <- "" -->
+<!-- CDPR50L$HA62[CDPR50L$HA62 == "99993"] <- "" -->
+<!-- CDPR50L$HA62[CDPR50L$HA62 == "99994"] <- "" -->
+<!-- CDPR50L$HA62[CDPR50L$HA62 == "99995"] <- "" -->
+<!-- CDPR50L$HA62[CDPR50L$HA62 == "99996"] <- "" -->
+<!-- CDPR50L$HA62[CDPR50L$HA62 == "99997"] <- "" -->
+<!-- CDPR50L$HA62[CDPR50L$HA62 == "99998"] <- "" -->
+<!-- CDPR50L$HA62[CDPR50L$HA62 == "99999"] <- "" -->
+<!-- CDPR50L$HA62[CDPR50L$HA62 == "?"] <- "" -->
+
+<!-- CDPR50L$HB62[CDPR50L$HB62 == "99990"] <- "" -->
+<!-- CDPR50L$HB62[CDPR50L$HB62 == "99991"] <- "" -->
+<!-- CDPR50L$HB62[CDPR50L$HB62 == "99992"] <- "" -->
+<!-- CDPR50L$HB62[CDPR50L$HB62 == "99993"] <- "" -->
+<!-- CDPR50L$HB62[CDPR50L$HB62 == "99994"] <- "" -->
+<!-- CDPR50L$HB62[CDPR50L$HB62 == "99995"] <- "" -->
+<!-- CDPR50L$HB62[CDPR50L$HB62 == "99996"] <- "" -->
+<!-- CDPR50L$HB62[CDPR50L$HB62 == "99997"] <- "" -->
+<!-- CDPR50L$HB62[CDPR50L$HB62 == "99998"] <- "" -->
+<!-- CDPR50L$HB62[CDPR50L$HB62 == "99999"] <- "" -->
+<!-- CDPR50L$HB62[CDPR50L$HB62 == "?"] <- "" -->
+
+<!-- paste("The HIV recoded barcodes are under the variables HA62 (males) and HB62 (females)", -->
+<!--       "Let's make sure that there are no overlapping barcodes for individual observations (by row) for HA62 & HB62") -->
+<!-- paste("There are", length(which(CDPR50L$HA62 != "")), "barcodes for men, suggesting that they did consent for HIV testing and have a DBS") -->
+<!-- paste("There are", length(which(CDPR50L$HB62 != "")), "barcodes for women, suggesting that they did consent for HIV testing and have a DBS") -->
+<!-- paste("Overall based on the household dataset, we expect to have", (length(which(CDPR50L$HA62 != "")) + length(which(CDPR50L$HB62 != ""))), "DBS") -->
+
+<!-- malebar <- which(CDPR50L$HA62 != "") -->
+<!-- femalebar <- which(CDPR50L$HB62 != "") -->
+<!-- intrsct <- dplyr::intersect(malebar, femalebar) -->
+<!-- paste("How many barcodes for both the male (HA62) and female (HB62) observations?:", length(intrsct)) -->
+<!-- paste("Should be 0; if not, stop and eval.") -->
+
+<!-- paste("OK. So no overlapping individuals with a male and female barcode -- good. Am now going to make a new variable, BARCODE, and concat the HA62 and HB62 columns in the Household Dataset") -->
+
+<!-- CDPR50L$barcode <- "" -->
+<!-- CDPR50L$HA62 <- as.character(CDPR50L$HA62) -->
+<!-- CDPR50L$barcode[which(CDPR50L$HA62 != "")] <- CDPR50L$HA62[which(CDPR50L$HA62 != "")] -->
+
+<!-- CDPR50L$HB62 <- as.character(CDPR50L$HB62) -->
+<!-- CDPR50L$barcode[which(CDPR50L$HB62 != "")] <- CDPR50L$HB62[which(CDPR50L$HB62 != "")] -->
+
+
+
+
+<!-- paste("Confirm that concatenation worked based on length", "From above, we expect", (length(which(CDPR50L$HA62 != "")) + length(which(CDPR50L$HB62 != ""))), "barcodes.") -->
+<!-- paste("In our new barcode variable we have", (length(which(CDPR50L$barcode != ""))), "observations,", "which matches our expectation:", -->
+<!--       (length(which(CDPR50L$barcode != ""))) == (length(which(CDPR50L$HA62 != "")) + length(which(CDPR50L$HB62 != "")))) -->
+
+<!-- paste("Are there any duplicated barcodes from the household dataset concatenated HA62 and HB62 new barcode variable?") -->
+<!-- #levels(factor(CDPR50L$barcode[which(CDPR50L$barcode != "")])) -->
+<!-- paste("There are", length(levels(factor(CDPR50L$barcode[which(CDPR50L$barcode != "")]))), "unique values,",  -->
+<!--       "which matches our expectation:", length(levels(factor(CDPR50L$barcode[which(CDPR50L$barcode != "")]))) == (length(which(CDPR50L$HA62 != "")) + length(which(CDPR50L$HB62 != "")))) -->
+<!-- paste("Confirm no duplicated values by different approach -- Are there duplicated entries:", (TRUE %in% duplicated(CDPR50L$barcode[which(CDPR50L$barcode != "")]))) -->
+
+<!-- paste("Good to go. Subsetting household dataset for HIV only pts") -->
+<!-- CDPR50L <- CDPR50L[which(CDPR50L$barcode != ""),] -->
+
+
+
+<!-- ######################################################################## -->
+<!-- ##################              HIV DATASETS          ################## -->
+<!-- ######################################################################## -->
+
+<!-- CDAR50FL <- read.sas7bdat("/Volumes/share/1. Data/1. Raw Data/DRC DHS 2007/CD_2007_DHS_07072017_114_108679/cdar50sd/CDAR50FL.SAS7BDAT", debug=FALSE) -->
+<!-- paste("There are", nrow(CDAR50FL), "observations in the DHS HIV Dataset", -->
+<!--       "This number matches JP's workflow.") -->
+<!-- paste("This dataset contains a Cluster, Household, Line, Barcode, Lab Number, HIV blood test result, and sampling weight.", "I am going to keep all variables except Line number and lab number.") -->
+<!-- CDAR50FL <- CDAR50FL[!colnames(CDAR50FL) %in% c("HIV02", "HIVLINE")] -->
+<!-- colnames(CDAR50FL) <- c("cluster", "household", "barcode", "HIV03", "HIV05") -->
+
+<!-- paste("Am now going to merge the household member survey with the HIV recoded survery.", -->
+<!--       "MERGING by cluster number, household number, and barcode") -->
+<!-- paste("To start the have the same number of rows:", nrow(CDAR50FL) == nrow(CDPR50L)) -->
+<!-- paste("WHY ARE THESE DISCORDANT??") ## GOING TO IGNORE THIS FOR NOW BUT WILL RETURN TO IT as there appears that CDPR50L has samples/people that maybe didn't consent for the HIV Recode? -->
+
+<!-- ######################################################################## -->
+<!-- ##################            METADATE MERGE          ################## -->
+<!-- ######################################################################## -->
+
+<!-- firstmerge <- inner_join(x=CDAR50FL, y=CDPR50L, by=c("cluster", "household", "barcode")) -->
+
+<!-- paste("The merge was not totally successful as observations were lost:", nrow(firstmerge) == nrow(CDAR50FL)) -->
+<!-- paste("Are there any duplicate observations:", (TRUE %in% duplicated(firstmerge))) -->
+<!-- paste("Will need to look into why this merge was poor....") -->
+
+
+<!-- ######################################################################## -->
+<!-- ##################      Merge with POOLED Samples         ############## -->
+<!-- ######################################################################## -->
+<!-- # going to just merge with the PooledVolumes_Final Samples -->
+<!-- colnames(PooledVolumes_Final)[1] <- c("barcode") -->
+<!-- PooledVolumes_Final_mtdt <- inner_join(x=PooledVolumes_Final, y=firstmerge, by=c("barcode")) -->
+<!-- paste("Confirming no drops in barcode between DHS metadata and the Pooled Volume Final samples collected:", (FALSE %in% (PooledVolumes_Final_mtdt$barcode %in% PooledVolumes_Final$barcode))) -->
+
+
+<!-- ######################################################################## -->
+<!-- ##################     Write out Table with Metadata         ########## -->
+<!-- ######################################################################## -->
+<!-- write.csv(x=PooledVolumes_Final_mtdt, file="/Volumes/share/2. Projects/1. Current/DRC_CrossSectionalDrugRx_JJJR01/PoolingStrategy2007_JonJ_R01/PooledVolumes_Final_DHSmetadata.csv",  -->
+<!--             row.names = F, col.names = T, na = "") -->
+
+<!-- ``` -->
+

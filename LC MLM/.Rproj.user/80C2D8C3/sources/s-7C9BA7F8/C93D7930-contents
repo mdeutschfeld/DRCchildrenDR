@@ -1,0 +1,40 @@
+
+
+adult_dat <- subset(ind_full, ind_full$year == "2007")
+kids_dat <- subset(ind_full, ind_full$year == "2013")
+
+trip <- table(adult_dat$A581G)
+trip
+
+double <- table(adult_dat$A437G, adult_dat$K540E)
+double
+
+single <- table(adult_dat$A437G)
+single
+
+non_mis <- subset(ind_full, !is.na(ind_full$CRT))
+non_mis <- subset(ind_full, !is.na(ind_full$A581G))
+
+kids_all <- subset(kids_dat, !is.na(kids_dat$A437G))
+kids_all <- subset(kids_all, !is.na(kids_all$K540E))
+kids_all <- subset(kids_all, !is.na(kids_all$A581G))
+kids_all <- subset(kids_dat, !is.na(kids_dat$CRT))
+
+adult_all <- subset(adult_dat, !is.na(adult_dat$A437G))
+adult_all <- subset(adult_dat, !is.na(adult_dat$K540E))
+adult_all <- subset(adult_dat, !is.na(adult_dat$A581G))
+adult_all <- subset(adult_dat, !is.na(adult_dat$CRT))
+
+miss_07 <- subset(kids_full, is.na(kids_full$A581G))
+summary(miss_07$province)
+hist(miss_07$prevalence)
+
+crt <- readxl::read_xls("~/Desktop/adult_2007_crt_new.xls")
+
+adult_2007_crt_new <- read_excel("~/Desktop/adult_2007_crt_new.xls", sheet = "Sheet2")
+crt_updated <- merge(adult_2007_crt_new, dhps_only, by.x = "sample name", by.y = "barcode")
+cviet <- table(adult_merged$mutant)
+cviet
+
+mixed <- table(dhs_sub$mixed, dhs_sub$mixed_new)
+mixed
