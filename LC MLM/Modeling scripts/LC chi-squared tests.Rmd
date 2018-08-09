@@ -15,22 +15,23 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # loading in data 
 ind_full <- read.csv("~/Desktop/Loved Children/LC MLM/LC_merged.csv")
-dhps_scratch <- ind_full
+
+library(dplyr)
+library(bindrcpp)
 ```
 
 ```{r}
 # looking at the number of NAs in 2007 and 2013
 
 missing <- ind_full
-missing$A437G
 
-missing <- missing %>% mutate(K540E = replace(K540E, which(is.na(K540E)), 3))
+missing <- missing %>% dplyr::mutate(K540E = replace(K540E, which(is.na(K540E)), 3))
 
 missing_tab <- table(missing$K540E, missing$year)
 missing_tab
 
-year_tab <- table(missing$year)
-year_tab
+table(missing$year)
+
 ```
 
 ```{r cars, echo = FALSE}

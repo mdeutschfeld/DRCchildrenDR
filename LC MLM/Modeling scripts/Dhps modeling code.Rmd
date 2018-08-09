@@ -30,8 +30,8 @@ year_dhps
 # number of mixed infections by year 
 mixed_tab <- table(dat$mixed, dat$year)
 mixed_tab
+prop.table(mixed_tab)
 chisq.test(mixed_tab)
-prop.test(mixed_tab)
 ## number of mixed infections increased from ~ 13% to ~21% 
 
 print("first we will look at the proportion of any dhps mutations") 
@@ -41,6 +41,28 @@ prop.table(dhps_tab, margin = 2)
 prop.test(dhps_tab)
 print("The propotion of any pfdhps mutation remained the same; 79% in 2007 and 76% in 2013 (p = 0.51")
 
+################# confidence intervals ##################
+## if we want to put in confidence intervals then we have to manually calculate them 
+## here is a function that I found to help us calculate this 
+## basically it just does the math for us but we can choose to add a continuity correction or not 
+conint <- function(n, p, z=1.96, cc=TRUE){
+  out <- list()
+  if(cc){
+    out$lb <- p - z*sqrt((p*(1-p))/n) - 0.5/n
+    out$ub <- p + z*sqrt((p*(1-p))/n) + 0.5/n
+  } else {
+    out$lb <- p - z*sqrt((p*(1-p))/n)
+    out$ub <- p + z*sqrt((p*(1-p))/n)
+  }
+  out
+}
+
+## we can now use this function for all the proportions 
+#####################################################################
+
+conint(n = 145, p = 0.79, z = 1.96, cc = F)
+conint(n = 347, p = 0.79, z = 1.96, cc = F)
+
 
 print("now we are only looking at the K540E mutation")
 K540E_tab <- table(dat$K540E, dat$year)
@@ -49,28 +71,37 @@ prop.table(K540E_tab, margin = 2)
 chisq.test(K540E_tab)
 print("the proportion of K540E mutations increased significantly from 17% in 2007 to 41% in 2013 (p<0.001) ")
 
+conint(n = 139, p = 0.165, z = 1.96, cc = F)
+conint(n = 216, p = 0.414, z = 1.96, cc = F)
+
+
 ## looking at non-mixed infections 
 monoclonal_dhps <- subset(dat, dat$mixed == 0)
 
-mono_year <- table(monoclonal_dhps$year)
-mono_year
+table(monoclonal_dhps$year)
 
 print("Now we will look only at monoclonal infections")
 mono_dhps <- table(monoclonal_dhps$dhps_mut, monoclonal_dhps$year)
 mono_dhps
 prop.table(mono_dhps, margin = 2)
 chisq.test(mono_dhps)
-prop.test(mono_dhps)
 print("The proportion of dhps mutations amongst monocolonal infections increased")
+
+conint(n= 107, p = 0.743, z = 1.96, cc = F)
+conint(n= 232, p = 0.642, z = 1.96, cc = F)
 
 
 mono_k540e <- table(monoclonal_dhps$K540E, monoclonal_dhps$year)
 mono_k540e
 prop.table(mono_k540e, margin = 2)
 chisq.test(mono_k540e)
-print("amongst monoclonal_dhps infections, the proportion of K540E mutations increased from 9% to 32% (p = 0.04)")
+print("amongst monoclonal_dhps infections, the proportion of K540E mutations increased from 9% to 32% (p <0.01)")
+
+conint(n = 114, p = 0.088, z= 1.96, cc = F)
+conint(n = 208, p = 0.324, z= 1.96, cc = F)
 
 ```
+
 
 ```{r}
 #### running univarite poisson models with any dhps mutation as the outcome 
@@ -79,15 +110,13 @@ print("amongst monoclonal_dhps infections, the proportion of K540E mutations inc
 poisson_1 <- glmer(dhps_mut  ~ PrevPct10 + 
                    (1|year/province), 
                    data = dat, 
-                   family=poisson(link = "log"),
-                   weight = dat$weight)
+                   family=poisson(link = "log"))
 summary(poisson_1)
 
 poisson_2 <- glmer(dhps_mut  ~ Fansidar10 + 
                    (1|year/province), 
                    data = dat, 
-                   family=poisson(link = "log"),
-                   weight = dat$weight)
+                   family=poisson(link = "log"))
 summary(poisson_2)
 
 poisson_3 <- glmer(dhps_mut  ~ wealthindex 
@@ -154,64 +183,55 @@ stargazer(poisson_1, poisson_2, poisson_3, poisson_4, poisson_5, poisson_6, pois
 K540E_1 <- glmer(K540E  ~ PrevPct10 + 
                    (1|year/province), 
                    data = dat, 
-                   family=poisson(link = "log"),
-                   weight = dat$weight)
+                   family=poisson(link = "log"))
 summary(K540E_1)
 
 K540E_2 <- glmer(K540E  ~ Fansidar10 + 
                    (1|year/province), 
                    data = dat, 
-                   family=poisson(link = "log"),
-                   weight = dat$weight)
+                   family=poisson(link = "log"))
 summary(K540E_2)
 
 K540E_3 <- glmer(K540E  ~ wealthindex 
                    + (1|year/province), 
                    data = dat, 
-                   family=poisson(link = "log"),
-                   weight = dat$weight)
+                   family=poisson(link = "log"))
 summary(K540E_3)
 
 K540E_4 <- glmer(K540E  ~ wealth_mean 
                    + (1|year/province), 
                    data = dat, 
-                   family=poisson(link = "log"),
-                    weight = dat$weight)
+                   family=poisson(link = "log"))
 summary(K540E_4)
 
 K540E_5 <- glmer(K540E  ~ mixed 
                    + (1|year/province), 
                    data = dat, 
-                   family=poisson(link = "log"),
-                   weight = dat$weight)
+                   family=poisson(link = "log"))
 summary(K540E_5)
 
 K540E_6 <- glmer(K540E  ~ pctedu0 
                    + (1|year), 
                    data = dat, 
-                   family=poisson(link = "log"),
-                   weight = dat$weight)
+                   family=poisson(link = "log"))
 summary(K540E_6)
 
 K540E_7 <- glmer(K540E  ~ urban1rural0 
                    + (1|year/province), 
                    data = dat, 
-                   family=poisson(link = "log"),
-                   weight = dat$weight)
+                   family=poisson(link = "log"))
 summary(K540E_7)
 
 K540E_8 <- glmer(K540E  ~ weighted_total + 
                      (1|year/province), 
                    data = dat, 
-                   family=poisson(link = "log"),
-                   weight = dat$weight)
+                   family=poisson(link = "log"))
 summary(K540E_8) # total variable is the total number of people within that DHS cluster -- proxy for population density
 
 K540E_9 <- glmer(K540E  ~ total 
                    + (1|year/province), 
                    data = dat, 
-                   family=poisson(link = "log"),
-                   weights = dat$weight)
+                   family=poisson(link = "log"))
 summary(K540E_9) 
 ```
 
