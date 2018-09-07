@@ -18,6 +18,7 @@ ind_full <- read.csv("~/Desktop/Loved Children/LC MLM/LC_merged.csv")
 ```
 
 ```{r}
+<<<<<<< HEAD
 ### recoding the education variable to be by 10% increases 
 
 ind_full$education10 <- ind_full$pctedu3/10
@@ -26,6 +27,51 @@ ind_full$educ_low10 <- ind_full$pctedu0/10
 summary(ind_full$education10)
 
 ind_full$wealth10 <- ind_full$pctwealth1 / 10
+=======
+######### preliminary tables ### 
+
+table(ind_full$year)
+
+mixed <- table(ind_full$mixed, ind_full$year)
+prop.table(mixed, margin = 2)
+chisq.test(mixed)
+
+###### chi squared tests #########
+
+crt_mut <- table(ind_full$CRT, ind_full$year)
+crt_mut
+prop.table(crt_mut, margin =2)
+print("the proportion of CRT mutations remains steady, 58% in 2007 and 54% in 2013")
+
+### the function for confidence intervals #### 
+conint <- function(n, p, z=1.96, cc=TRUE){
+  out <- list()
+  if(cc){
+    out$lb <- p - z*sqrt((p*(1-p))/n) - 0.5/n
+    out$ub <- p + z*sqrt((p*(1-p))/n) + 0.5/n
+  } else {
+    out$lb <- p - z*sqrt((p*(1-p))/n)
+    out$ub <- p + z*sqrt((p*(1-p))/n)
+  }
+  out
+}
+
+conint(n = 162, p = 0.580, z = 1.96, cc = F)
+conint(n = 513, p = 0.536, z = 1.96, cc = F)
+
+### monoclonal infections only 
+
+crt_mono <- subset(ind_full, ind_full$mixed == 0)
+
+mono_crt <- table(crt_mono$CRT, crt_mono$year)
+mono_crt
+prop.table(mono_crt, margin = 2)
+chisq.test(mono_crt)
+
+conint(n = 125, p = 0.456, z = 1.96, cc = F)
+conint(n = 398, p = 0.536, z = 1.96, cc = F)
+
+>>>>>>> 8718c8596c3489945496337a90f5b767bb4a4bee
 ```
 
 ```{r}
