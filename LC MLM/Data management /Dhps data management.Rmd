@@ -63,6 +63,8 @@ dhps_merged <- merge(dhps_merged, A581G, by = "Sample ID")
 ## making a mixed infection variable 
 dhps_merged$mixed <- apply(dhps_merged, 1, function(x){as.numeric(any(x == "MIX", na.rm = T))}) #shit I love this function 
 
+
+
 ## subsetting just the SNP calls 
 dhps_snps <- dhps_merged[c("Sample ID", "A437G", "K540E", "A581G", "mixed")]
 
@@ -81,17 +83,16 @@ dhps_snps <- merge(dhps_snps, DHSChildrenU5, by.x="Barcode", by.y = "sh312")
 ########################
 ## merging both 2007 data sets 
 adult_merged <- merge(dhps_only, MoST_Congo, by = "barcode")
+newclusters <- read_xlsx("~/Desktop/newclusters.xlsx")
 
 # subsetting only the SNP and cluster columns 
 ## keeping individual covariates we think are important: wealth index 
 # v024 and mv024 are both province variables but some people have missing for one but info for the other
 
 dhs_sub <- adult_merged[c("barcode", "d437", "d540", "d581", "mv024", "v024", "wealthindex", "cluster", "mv005", "sampleweight", "falcipprev")]
+dhs_sub <- merge(dhs_sub, newclusters, by.x = "cluster", by.y = "DHSCLUST")
 #dhs_sub <- adult_merged[c(1:6, "mv024", "v024", "wealthindex", "cluster", "mv005")]## not sure why this didn't work 
 
-dhs_sub$mv024[is.na(dhs_sub$mv024)] <- 0 # making these zero so we can add the two columns together
-dhs_sub$v024[is.na(dhs_sub$v024)] <- 0
-dhs_sub$province <- (dhs_sub$mv024 + dhs_sub$v024) # creating combined province variable 
 
 ## changing SNP coding to be NA,0,1 
 ## also changing column name so it matches 2013
@@ -123,10 +124,10 @@ dhs_sub$samp_weight <- dhs_sub$mv005/1000000
 ```{r}
 ## now selecting the variables for the MLM 
 ## keeping barcode, SNP data, mixed column, 
-adult_ind<- dhs_sub[c("barcode", "wealthindex", "cluster", "province", "A437G", "K540E", "A581G", "mixed", "samp_weight")]
+adult_ind<- dhs_sub[c("barcode", "wealthindex", "cluster", "shnprovin", "A437G", "K540E", "A581G", "mixed", "samp_weight")]
 
 ## hv270 is the wealth variable 
-kids_ind<- dhps_snps[c("Barcode", "A437G", "K540E", "A581G", "mixed", "hv001", "hv270", "hv024", "hv005")]
+kids_ind<- dhps_snps[c("Barcode", "A437G", "K540E", "A581G", "mixed", "hv001", "hv270", "hv005", "shnprovin")]
 kids_ind$samp_weight <- kids_ind$hv005/1000000
 kids_ind$hv005 <- NULL
 
@@ -137,6 +138,8 @@ colnames(kids_ind)[7]<- "wealthindex"
 colnames(kids_ind)[8]<- "province"
 
 colnames(adult_ind)[1] <- "barcode"
+colnames(adult_ind)[4] <- "province"
+
 ```
 
 ```{r}
