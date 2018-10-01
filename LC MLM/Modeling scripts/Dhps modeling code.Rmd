@@ -120,7 +120,7 @@ dat$wealth10 <- dat$pctwealth1 / 10
 #### running univarite poisson models with any dhps mutation as the outcome 
 #### using the DHS sampling weights in these models to get more accurate estimates 
 #### fitting a random effect for province - we cannot estimate a random effect for year since there are only two years --- we can adjust for year as a covariate 
-poisson_1 <- glmer(dhps_mut  ~ PrevPct10 +
+poisson_1 <- glmer(dhps_mut  ~ PrevPct10 +  
                    (1|province), 
                    data = dat, 
                    family=poisson(link = "log"))
@@ -181,19 +181,19 @@ stargazer(poisson_1, poisson_2, poisson_3, poisson_4, poisson_5, poisson_6, pois
           align = T, 
           type = "text",
           ci = T)
-
+## except this looks pretty awkward 
 ```
 
 ```{r}
 #### now we are running univarite poisson models with the K540E mutation as the outcome 
 
-K540E_1 <- glmer(K540E  ~ PrevPct10 +
+K540E_1 <- glmer(K540E  ~ PrevPct10 + 
                    (1|province), 
                    data = dat, 
                    family=poisson(link = "log"))
 summary(K540E_1)
 
-K540E_2 <- glmer(K540E  ~ Fansidar10 + 
+K540E_2 <- glmer(K540E  ~ Fansidar10 +
                    (1|province), 
                    data = dat, 
                    family=poisson(link = "log"))
@@ -215,11 +215,9 @@ K540E_4b <- glmer(K540E  ~ wealth10
                    + (1|province), 
                    data = dat, 
                    family=poisson(link = "log"))
-<<<<<<< HEAD
 summary(K540E_4b)
-=======
+
 summary(K540E_5)
->>>>>>> 8718c8596c3489945496337a90f5b767bb4a4bee
 
 K540E_6 <- glmer(K540E  ~ education10 
                    + (1|province), 
@@ -230,14 +228,10 @@ summary(K540E_6)
 K540E_7 <- glmer(K540E  ~ urban1rural0 
                    + (1|province), 
                    data = dat, 
-<<<<<<< HEAD
                    family=binomial(link = "logit"))
-=======
-                   family=poisson(link = "log"))
->>>>>>> 8718c8596c3489945496337a90f5b767bb4a4bee
 summary(K540E_7)
 
-K540E_8 <- glmer(K540E  ~ weighted_total + 
+K540E_8 <- glmer(K540E  ~ weighted_total + yearbin + 
                      (1|province), 
                    data = dat, 
                    family=poisson(link = "log"))

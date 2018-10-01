@@ -14,8 +14,6 @@ library(tidyverse)
 library(dplyr)
 library(haven)
 library(readxl)
-#install.packages("nnet")
-#library(nnet)
 
 # start with reading in the combo data - a data set that has the cluster level covariates for both 2007 and 2013
 combo <- read.csv("~/Documents/UNC/Meshnick Lab /DRC DHS data/Loved Children/COMBINED.csv")
@@ -28,6 +26,10 @@ DHSChildrenU5 <- read.csv("~/Documents/UNC/Meshnick Lab /DRC DHS data/Kids datab
 ## reading in adult 2007 data 
 MoST_Congo <- read_dta("~/Documents/UNC/Meshnick Lab /DRC DHS data/2007 data/MoST-Congo.dta")
 dhps_only <- readxl::read_xlsx("~/Documents/UNC/Meshnick Lab /DRC DHS data/2007 data/adult_dhps_only.xlsx")
+
+#province data that we will need to use the new provinces 
+newclusters <- read_xlsx("~/Desktop/newclusters.xlsx")
+
 
 ```
 

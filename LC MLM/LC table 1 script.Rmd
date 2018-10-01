@@ -16,7 +16,7 @@ library(tableone)
 
 #reading in data for DHPS and CRT separetley 
 ind_full <- read.csv("~/Desktop/Loved Children/LC MLM/LC_merged.csv")
-dhps_dat <- read.csv("~/Desktop/Loved Children/LC MLM/dhps_merged.csv")
+dat <- read.csv("~/Desktop/Loved Children/LC MLM/dhps_merged.csv")
 
 ```
 
@@ -32,12 +32,12 @@ dhps_dat <- read.csv("~/Desktop/Loved Children/LC MLM/dhps_merged.csv")
 dhpsvars <- c("wealth_median", "wealthindex", "mixed", "urban1rural0")
 dhpsstrat <- c("dhps_mut")
 
-Table1 <- CreateCatTable(vars = dhpsvars, strata = dhpsstrat, data = dhps_dat)
+Table1 <- CreateCatTable(vars = dhpsvars, strata = dhpsstrat, data = dat)
 Table1
 
 ## crt 
 
-crtvars <- c("wealth_median", "wealthindex", "mixed", "urban1rural0")
+crtvars <- c("wealth_median", "wealthindex", "mixed", "urban1rural0", "wealth10")
 crtstrat <- c("CRT")
 
 CRT_Table1 <- CreateCatTable(vars = crtvars, strata = crtstrat, data = ind_full)
@@ -47,10 +47,10 @@ CRT_Table1
 ```{r}
 ## continuous variables 
 
-dhps_cont <- c("PrevPct", "Fansidar10", "weighted_total", "pctedu0")
+dhps_cont <- c("PrevPct", "Fansidar10", "weighted_total", "pctedu0", "pctwealth1")
 dhpsstrat <- c("dhps_mut")
 
-Dhps_cont_table1 <- CreateTableOne(vars = dhps_cont, strata = dhpsstrat, data = ind_full)
+Dhps_cont_table1 <- CreateTableOne(vars = dhps_cont, strata = dhpsstrat, data = dat)
 Dhps_cont_table1
 
 tapply(ind_full$wealth_median, ind_full$dhps_mut, summary)
@@ -59,7 +59,7 @@ tapply(ind_full$wealthindex, ind_full$dhps_mut, summary)
 
 ## crt
 
-crt_cont <- c("PrevPct", "Chlor10", "weighted_total", "pctedu0")
+crt_cont <- c("PrevPct", "Chlor10", "weighted_total", "pctedu0", "pctwealth1")
 crtstrat <- c("CRT")
 
 CRT_cont_table1 <- CreateTableOne(vars = crt_cont, strata = crtstrat, data = ind_full)

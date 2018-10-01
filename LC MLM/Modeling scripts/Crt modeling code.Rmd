@@ -18,7 +18,6 @@ ind_full <- read.csv("~/Desktop/Loved Children/LC MLM/LC_merged.csv")
 ```
 
 ```{r}
-<<<<<<< HEAD
 ### recoding the education variable to be by 10% increases 
 
 ind_full$education10 <- ind_full$pctedu3/10
@@ -26,8 +25,9 @@ ind_full$educ_low10 <- ind_full$pctedu0/10
 
 summary(ind_full$education10)
 
-ind_full$wealth10 <- ind_full$pctwealth1 / 10
-=======
+ind_full$low_wealth10 <- ind_full$pctwealth1 / 10
+ind_full$high_wealth10 <- ind_full$pctwealth5 / 10
+
 ######### preliminary tables ### 
 
 table(ind_full$year)
@@ -71,14 +71,14 @@ chisq.test(mono_crt)
 conint(n = 125, p = 0.456, z = 1.96, cc = F)
 conint(n = 398, p = 0.536, z = 1.96, cc = F)
 
->>>>>>> 8718c8596c3489945496337a90f5b767bb4a4bee
 ```
 
 ```{r}
 ####### CRT ########
 ### running poisson model
 
-CRT_1 <- glmer(CRT  ~ PrevPct10 + (1|province), 
+CRT_1 <- glmer(CRT  ~ PrevPct10 + 
+                (1|province), 
                data = ind_full, 
                family=poisson(link = "log"))
 summary(CRT_1)
@@ -88,7 +88,7 @@ CRT_2 <- glmer(CRT  ~ Chlor10 + (1|province),
                family=poisson(link = "log"))
 summary(CRT_2)
 
-CRT_3 <- glmer(CRT  ~ wealthindex
+CRT_3 <- glmer(CRT  ~ wealthindex 
                + (1|province), 
                data = ind_full, 
                family=poisson(link = "log"))
@@ -100,12 +100,13 @@ CRT_4 <- glmer(CRT  ~ (wealth_median)
                family=poisson(link = "log"))
 summary(CRT_4)
 
-CRT_4b <- glmer(CRT  ~ wealth10 
+CRT_4b <- glmer(CRT  ~ low_wealth10 
                + (1|province), 
                data = ind_full, 
                family=poisson(link = "log"))
 summary(CRT_4b)
 
+## wealth10 is a measure of low wealth - a result of lower prevalence indicates that increasae proportion of people with low income reduces prevalence 
 
 CRT_6 <- glmer(CRT  ~ educ_low10
                + (1|province), 

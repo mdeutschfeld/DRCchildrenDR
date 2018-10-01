@@ -18,7 +18,6 @@ library(dplyr)
 # loading in data 
 ind_full <- read.csv("~/Desktop/Loved Children/LC MLM/LC_merged.csv")
 
-library(dplyr)
 library(bindrcpp)
 ```
 
