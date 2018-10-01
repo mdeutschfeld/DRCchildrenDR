@@ -17,10 +17,20 @@ fixef(m1)
 
 
 
-fixef(m1)["x1"] <- 0.1 #creating a set fixed effect 
+fixef(m1)["x1"] <- 0.01 #creating a set fixed effect 
 
 summary(m1)
 # running power analysis 
 powerSim(m1)
 
 ## will try to run with a binary variable 
+
+dat_sample <- dat13[sample(1:nrow(dat13), 100, replace = FALSE),]
+m1 <- glmer(PFLDH ~ age + (1|cluster), family = binomial(link = "logit"), data = dat_sample)
+summary(m1)
+fixef(m1)["age"] <- 0.01
+powerSim(m1, alpha= 0.05)
+
+
+powerCurve(m1)
+

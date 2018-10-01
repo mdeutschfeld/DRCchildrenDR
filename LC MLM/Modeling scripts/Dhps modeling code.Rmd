@@ -100,73 +100,80 @@ print("amongst monoclonal_dhps infections, the proportion of K540E mutations inc
 conint(n = 114, p = 0.088, z= 1.96, cc = F)
 conint(n = 208, p = 0.324, z= 1.96, cc = F)
 
+mono_double <- table(monoclonal_dhps$A581G, monoclonal_dhps$year)
+mono_double
+prop.table(mono_double, margin = 2)
+chisq.test(mono_double)
+print("amongst monoclonal_dhps infections, the proportion of double mutatants increased from 3% to 11% (p = 0.02)")
+
+```
+
+```{r}
+### rescaling the education variable 
+
+dat$education10 <- dat$pctedu0 / 10
+dat$wealth10 <- dat$pctwealth1 / 10
 ```
 
 
 ```{r}
 #### running univarite poisson models with any dhps mutation as the outcome 
 #### using the DHS sampling weights in these models to get more accurate estimates 
-#### fitting a random effect for province and year, with province nested within year 
-poisson_1 <- glmer(dhps_mut  ~ PrevPct10 + 
-                   (1|year/province), 
+#### fitting a random effect for province - we cannot estimate a random effect for year since there are only two years --- we can adjust for year as a covariate 
+poisson_1 <- glmer(dhps_mut  ~ PrevPct10 +
+                   (1|province), 
                    data = dat, 
                    family=poisson(link = "log"))
 summary(poisson_1)
 
 poisson_2 <- glmer(dhps_mut  ~ Fansidar10 + 
-                   (1|year/province), 
+                   (1|province), 
                    data = dat, 
                    family=poisson(link = "log"))
 summary(poisson_2)
 
 poisson_3 <- glmer(dhps_mut  ~ wealthindex 
-                   + (1|year/province), 
+                   + (1|province), 
                    data = dat, 
-                   family=poisson(link = "log"),
-                   weight = dat$weight)
+                   family=poisson(link = "log"))
 summary(poisson_3)
 
-poisson_4 <- glmer(dhps_mut  ~ wealth_mean 
-                   + (1|year/province), 
+poisson_4 <- glmer(dhps_mut  ~ wealth_median 
+                   + (1|province), 
                    data = dat, 
-                   family=poisson(link = "log"),
-                    weight = dat$weigh)
+                   family=poisson(link = "log"))
 summary(poisson_4)
 
-poisson_5 <- glmer(dhps_mut  ~ mixed 
-                   + (1|year/province), 
+poisson_4b <- glmer(dhps_mut  ~ wealth10 
+                   + (1|province), 
                    data = dat, 
-                   family=poisson(link = "log"),
-                   weight = dat$weight)
-summary(poisson_5)
+                   family=poisson(link = "log"))
+summary(poisson_4b)
+# 
+# poisson_5 <- glmer(dhps_mut  ~ mixed 
+#                    + (1|year/province), 
+#                    data = dat, 
+#                    family=poisson(link = "log"))
+# summary(poisson_5)
 
-poisson_6 <- glmer(dhps_mut  ~ pctedu0 
-                   + (1|year), 
+poisson_6 <- glmer(dhps_mut  ~ education10
+                   + (1|province), 
                    data = dat, 
-                   family=poisson(link = "log"),
-                   weight = dat$weight)
+                   family=poisson(link = "log"))
 summary(poisson_6)
 
 poisson_7 <- glmer(dhps_mut  ~ urban1rural0 
-                   + (1|year/province), 
+                   + (1|province), 
                    data = dat, 
-                   family=poisson(link = "log"),
-                   weight = dat$weight)
+                   family=poisson(link = "log"))
 summary(poisson_7)
 
-poisson_8 <- glmer(dhps_mut  ~ total + 
-                     (1|year/province), 
+poisson_8 <- glmer(dhps_mut  ~ weighted_total + 
+                     (1|province), 
                    data = dat, 
-                   family=poisson(link = "log"),
-                   weight = dat$weight)
+                   family=poisson(link = "log"))
 summary(poisson_8) # total variable is the total number of people within that DHS cluster -- proxy for population density
 
-poisson_9 <- glmer(dhps_mut  ~ total 
-                   + (1|year/province), 
-                   data = dat, 
-                   family=poisson(link = "log"),
-                   weights = dat$weight)
-summary(poisson_9) 
 
 ### putting it all into a nice table 
 stargazer(poisson_1, poisson_2, poisson_3, poisson_4, poisson_5, poisson_6, poisson_7, poisson_9, 
@@ -180,20 +187,20 @@ stargazer(poisson_1, poisson_2, poisson_3, poisson_4, poisson_5, poisson_6, pois
 ```{r}
 #### now we are running univarite poisson models with the K540E mutation as the outcome 
 
-K540E_1 <- glmer(K540E  ~ PrevPct10 + 
-                   (1|year/province), 
+K540E_1 <- glmer(K540E  ~ PrevPct10 +
+                   (1|province), 
                    data = dat, 
                    family=poisson(link = "log"))
 summary(K540E_1)
 
 K540E_2 <- glmer(K540E  ~ Fansidar10 + 
-                   (1|year/province), 
+                   (1|province), 
                    data = dat, 
                    family=poisson(link = "log"))
 summary(K540E_2)
 
 K540E_3 <- glmer(K540E  ~ wealthindex 
-                   + (1|year/province), 
+                   + (1|province), 
                    data = dat, 
                    family=poisson(link = "log"))
 summary(K540E_3)
@@ -204,26 +211,34 @@ K540E_4 <- glmer(K540E  ~ wealth_mean
                    family=poisson(link = "log"))
 summary(K540E_4)
 
-K540E_5 <- glmer(K540E  ~ mixed 
-                   + (1|year/province), 
+K540E_4b <- glmer(K540E  ~ wealth10
+                   + (1|province), 
                    data = dat, 
                    family=poisson(link = "log"))
+<<<<<<< HEAD
+summary(K540E_4b)
+=======
 summary(K540E_5)
+>>>>>>> 8718c8596c3489945496337a90f5b767bb4a4bee
 
-K540E_6 <- glmer(K540E  ~ pctedu0 
-                   + (1|year), 
+K540E_6 <- glmer(K540E  ~ education10 
+                   + (1|province), 
                    data = dat, 
                    family=poisson(link = "log"))
 summary(K540E_6)
 
 K540E_7 <- glmer(K540E  ~ urban1rural0 
-                   + (1|year/province), 
+                   + (1|province), 
                    data = dat, 
+<<<<<<< HEAD
+                   family=binomial(link = "logit"))
+=======
                    family=poisson(link = "log"))
+>>>>>>> 8718c8596c3489945496337a90f5b767bb4a4bee
 summary(K540E_7)
 
 K540E_8 <- glmer(K540E  ~ weighted_total + 
-                     (1|year/province), 
+                     (1|province), 
                    data = dat, 
                    family=poisson(link = "log"))
 summary(K540E_8) # total variable is the total number of people within that DHS cluster -- proxy for population density

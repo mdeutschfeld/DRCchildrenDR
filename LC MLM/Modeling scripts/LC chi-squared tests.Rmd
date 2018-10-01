@@ -13,6 +13,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ##### there are lots of ways to look at the frequencies becauase of the NA's 
 ##### going to present all of them so that we can decide which is best 
 
+library(dplyr)
+
 # loading in data 
 ind_full <- read.csv("~/Desktop/Loved Children/LC MLM/LC_merged.csv")
 
@@ -60,11 +62,6 @@ scratch_muts$dhps[scratch_muts$snps == 0] <- 0
 scratch_muts$dhps[scratch_muts$A437G == 1 | scratch_muts$K540E == 1 | scratch_muts$A581G == 1] <-1
 scratch_muts$dhps[scratch_muts$A437G == 0 & scratch_muts$K540E == 0 & scratch_muts$A581G == 0] <-0
 
-A437 <- table(scratch_muts$dhps, scratch_muts$year)
-A437
-
-A437no <- table(nomiss$dhps, nomiss$year)
-A437no
 
 dhps_tab <- table(scratch_muts$dhps, scratch_muts$year)
 dhps_tab
@@ -95,18 +92,29 @@ allobvs$dhps[allobvs$A437G == 1 | allobvs$K540E == 1 | allobvs$A581G == 1] <-1
 allobvs$dhps[allobvs$A437G == 0 & allobvs$K540E == 0 & allobvs$A581G == 0] <-0
 
 
-allobvs_dhps <- table(allobvs$year, allobvs$dhps)
+allobvs_dhps <- table(allobvs$dhps, allobvs$year)
 allobvs_dhps
+prop.table(allobvs_dhps, margin= 2)
 chisq.test(allobvs_dhps)
-115/(115+30)
-264/(264+83)
 print("not dropping missing, the proportion of DHPS snps is 79% in 2007 and 76% in 2013")
 
 allobvs_K540E <- table(allobvs$K540E, allobvs$year)
 allobvs_K540E
+prop.table(allobvs_K540E, margin= 2)
 chisq.test(allobvs_K540E)
 print("The proportion of K540E mutations jumps from 17% in 2007 to 41% in 2013, p-value <<0.01")
 
+allobvs_A581G <- table(allobvs$A581G, allobvs$year)
+allobvs_A581G
+prop.table(allobvs_A581G, margin= 2)
+chisq.test(allobvs_A581G)
+print("The proportion of A581G mutations jumps from 3% in 2007 to 18% in 2013, p-value <<0.01")
+
+allobvs$double <- ifelse(allobvs$K540E == 1 & allobvs$A581G == 1, 1, 0)
+allobvs_double <- table(allobvs$double, allobvs$year)
+allobvs_double
+prop.table(allobvs_double, margin= 2)
+chisq.test(allobvs_double)
 
 # crt 
 allobvs_crt <- table(allobvs$CRT, allobvs$year)
@@ -119,8 +127,59 @@ print("proportion of CRT mutations increases from 47% in 2007 to 55% in 2013. Th
 
 ```
 
+
 ```{r}
-### now going to only drop people who have NA for all observations since we don't want to drop them if they have some usable data 
+## we also need to calculate confidence intervals 
+
+#### DHPS ##### 
+
+allobvs_dhps
+prop.table(allobvs_dhps, margin = 2)
+prop.test(115, 145)
+prop.test(264, 347)
+
+allobvs_K540E
+prop.table(allobvs_K540E, margin = 2)
+prop.test(23, 139)
+prop.test(132, 319)
+
+allobvs_A581G
+prop.test(4, 126)
+prop.test(57, 319)
+
+allobvs_double
+prop.test(3, 137)
+prop.test(57, 319)
+```
+
+```{r}
+#### now we are going to look at monoclonal infections only 
+dat<- read.csv("~/Desktop/Loved Children/LC MLM/dhps_merged.csv")
+
+monoclonal <- subset(dat, dat$mixed == 0)
+monoclonal <- monoclonal[c("A437G", "K540E", "A581G", "year")]
+
+monoclonal$dhps[monoclonal$A437G == 1 | monoclonal$K540E == 1 | monoclonal$A581G == 1] <-1
+monoclonal$dhps[monoclonal$A437G == 0 & monoclonal$K540E == 0 & monoclonal$A581G == 0] <-0
+
+mono_dhps <- table(monoclonal$dhps, monoclonal$year)
+mono_dhps
+prop.table(mono_dhps, margin= 2)
+prop.test(87, 117)
+prop.test(149, 232)
+chisq.test(mono_dhps)
+
+mono_k540e <- table(monoclonal$K540E, monoclonal$year)
+mono_k540e
+prop.table(mono_k540e, margin = 2)
+
+monoclonal$double <- ifelse(monoclonal$K540E == 1 & monoclonal$A581G == 1, 1, 0)
+mono_double <- table(monoclonal$double, monoclonal$year)
+mono_double
+prop.table(mono_double, margin = 2)
+prop.test(3 , 112)
+prop.test(24, 210)
+chisq.test(mono_double)
 
 ```
 
