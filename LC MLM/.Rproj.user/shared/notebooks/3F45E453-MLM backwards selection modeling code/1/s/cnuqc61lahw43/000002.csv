@@ -1,5 +1,0 @@
-"0","ind_full <- read.csv(""~/Desktop/LC MLM/LC_merged.csv"")
-"
-"2","cannot open file '/Users/Molly/Desktop/LC MLM/LC_merged.csv': No such file or directory"
-"2","Error in file(file, ""rt"") : cannot open the connection
-"
